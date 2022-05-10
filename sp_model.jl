@@ -2,7 +2,9 @@ using StochasticPrograms
 using Random
 
 ##
-
+"""
+Default values of system parameters.
+"""
 default_es_pars = Dict((
     :c_i => .3,
     :c_o => .05,
@@ -17,18 +19,33 @@ default_es_pars = Dict((
     :recovery_time => 72,
     :COP => 0.8,
     :heat_losses => 0.01
+    :penalty => 10000.
 ))
 
+"""
+Sample n scenarios.
+"""
 function simple_flex_sampler(n, F_max, t_max)
     [@scenario t_xi = rand(1:t_max) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = 1/n 
         for i in 1:n]
 end
 
+"""
+Get an array with a single pseudo scenario with no flexiblity. This is useful for optimizing the system as if no flexibilty was introduced.
+"""
 function no_flex_pseudo_sampler()
     [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.
     ,]
 end
 
+"""
+Define energy system.
+Parameters:
+- pv, wind - weather timeseries
+- demand, heatdemand - demand timeseries
+- p - dictionary with system parameters, such as component costs, losses and recovery time window
+- strict_flex - bool, if false, finite penalty is used
+"""
 function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
     c_sto_op = p[:c_sto_op]
@@ -102,7 +119,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_sto_op = c_sto_op
                 c_i = c_i
                 c_o = c_o
-                penalty = 10000
+                penalty = p[:penalty]
                 heat_losses = heat_losses
                 COP = COP
             end
@@ -173,6 +190,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     energy_system
 end
 
+"""
+Get decision variables associated with investment rather than system operation.
+"""
 get_investments(sp) = Dict((
     :u_pv => value.(sp[1, :u_pv]),
     :u_wind => value.(sp[1, :u_wind]),
@@ -181,6 +201,9 @@ get_investments(sp) = Dict((
     :u_heat_storage => value.(sp[1, :u_heat_storage])
 ))
 
+"""
+Fix the investment variables.
+"""
 function fix_investment!(sp, investments)
     for (var_sym, value) in zip(keys(investments), values(investments))
         fix(decision_by_name(sp, 1, string(var_sym)), value)
