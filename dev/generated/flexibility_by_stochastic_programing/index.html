@@ -10,14 +10,18 @@ Pkg.instantiate()
 using DataFrames
 using CSV
 using Clp
-using Statistics</code></pre><h1 id="Flexibility-analysis-and-optimization"><a class="docs-heading-anchor" href="#Flexibility-analysis-and-optimization">Flexibility analysis and optimization</a><a id="Flexibility-analysis-and-optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Flexibility-analysis-and-optimization" title="Permalink"></a></h1><p>We take an energy system and analyze and optimize its flexibility potential.</p><p>Te model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.</p><pre><code class="language- hljs">include(joinpath((basepath, &quot;src&quot;, &quot;sp_model.jl&quot;)))
+using Statistics</code></pre><h1 id="Flexibility-analysis-and-optimization"><a class="docs-heading-anchor" href="#Flexibility-analysis-and-optimization">Flexibility analysis and optimization</a><a id="Flexibility-analysis-and-optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Flexibility-analysis-and-optimization" title="Permalink"></a></h1><p>We take an energy system and analyze and optimize its flexibility potential.</p><p>The model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.</p><pre><code class="language- hljs">include(joinpath((basepath, &quot;src&quot;, &quot;sp_model.jl&quot;)))
 include(joinpath((basepath, &quot;src&quot;, &quot;plot_utils.jl&quot;)))
 include(joinpath((basepath, &quot;src&quot;, &quot;evaluation_utils.jl&quot;)))</code></pre><p>We load timeseries for photovoltaic (pv) and wind potential as well as demand.</p><pre><code class="language- hljs">offset = 6531
 timesteps = 1:168
 
-pv = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 3]
-wind = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 4]
-demand = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 2]
+data = CSV.read(joinpath((basepath, &quot;timeseries&quot;, &quot;basic_example.csv&quot;)), DataFrame)
+
+pv = data[timesteps .+ offset, 3]
+wind = data[timesteps .+ offset, 4]
+demand = data[timesteps .+ offset, 2]
+
+data = nothing # Free the memory
 
 #</code></pre><p>Next we continue the set up. Our model comes with default parameters, which we slightly adjust here. We use some arbitrary values to define a dummy heat demand.</p><pre><code class="language- hljs">pars = copy(default_es_pars)
 
@@ -109,4 +113,6 @@ evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
 
 #
 
-relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Flexibility analysis using Stochastic Programing</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Tuesday 10 May 2022 15:23">Tuesday 10 May 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
+
+#</code></pre><p>Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:</p><pre><code class="language- hljs">relative_flex_cost_inv / relative_flex_cost - 1.</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Flexibility analysis using Stochastic Programing</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Tuesday 10 May 2022 15:41">Tuesday 10 May 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

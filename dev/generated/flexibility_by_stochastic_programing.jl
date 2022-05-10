@@ -18,9 +18,13 @@ include(joinpath((basepath, "src", "evaluation_utils.jl")))
 offset = 6531
 timesteps = 1:168
 
-pv = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 3]
-wind = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 4]
-demand = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 2]
+data = CSV.read(joinpath((basepath, "timeseries", "basic_example.csv")), DataFrame)
+
+pv = data[timesteps .+ offset, 3]
+wind = data[timesteps .+ offset, 4]
+demand = data[timesteps .+ offset, 2]
+
+data = nothing # Free the memory
 
 #
 
@@ -139,6 +143,10 @@ evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
 #
 
 relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
+
+#
+
+relative_flex_cost_inv / relative_flex_cost - 1.
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
