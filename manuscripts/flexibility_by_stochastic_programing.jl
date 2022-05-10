@@ -18,7 +18,7 @@ using Statistics
 
 We take an energy system and analyze and optimize its flexibility potential.
 
-Te model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.
+The model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.
 =#
 
 #- 
@@ -36,9 +36,13 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 offset = 6531
 timesteps = 1:168
 
-pv = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 3]
-wind = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 4]
-demand = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 2]
+data = CSV.read(joinpath((basepath, "timeseries", "basic_example.csv")), DataFrame)
+
+pv = data[timesteps .+ offset, 3]
+wind = data[timesteps .+ offset, 4]
+demand = data[timesteps .+ offset, 2]
+
+data = nothing # Free the memory
 
 ##
 
@@ -251,4 +255,13 @@ evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
 ##
 
 relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
+
+##
+
+#=
+Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:
+=#
+
+relative_flex_cost_inv / relative_flex_cost - 1.
+
 
