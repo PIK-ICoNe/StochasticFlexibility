@@ -89,12 +89,12 @@ plot_results(sp_f, pv, wind, demand, hd = heatdemand, s = 8, stage_1 = [:gci, :g
 ##
 cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp, 1:t_max)
 
-plot_flexibility(1:t_max, cost_pos, pot_pos, cost_neg, pot_neg, objective_value(sp))
+plot_flexibility(1:t_max, cost_pos, pot_pos, cost_neg, pot_neg)
 
 ##
 cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f = analyze_flexibility_potential(sp_f, 1:t_max)
 
-plot_flexibility(1:t_max, cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f, objective_value(sp))
+plot_flexibility(1:t_max, cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f)
 
 ##
 

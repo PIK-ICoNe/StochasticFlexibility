@@ -12,25 +12,26 @@ function evaluate_decision_wrapper(p, decision, scenario)
     return cost
 end
 
-function analyze_flexibility_potential(p, timesteps)
-    decision = optimal_decision(p)
+function analyze_flexibility_potential(sp, timesteps)
+    decision = optimal_decision(sp)
+    cost_no_flex = evaluate_decision_wrapper(sp, optimal_decision(sp), no_flex_pseudo_sampler()[1])
     L = length(timesteps)
     cost_pos_flex = zeros(L)
     cost_neg_flex = zeros(L)
     potential_pos_flex = zeros(L)
     potential_neg_flex = zeros(L)
     Threads.@threads for t in timesteps
-        potential_pos_flex[t], cost_pos_flex[t] = find_f_max(p,t,1,decision,10.)
-        potential_neg_flex[t], cost_neg_flex[t] = find_f_max(p,t,-1,decision,10.)
+        potential_pos_flex[t], cost_pos_flex[t] = find_f_max(sp,t,1,decision,10.)
+        potential_neg_flex[t], cost_neg_flex[t] = find_f_max(sp,t,-1,decision,10.)
     end
-    return cost_pos_flex, potential_pos_flex, cost_neg_flex, potential_neg_flex
+    return cost_pos_flex .- cost_no_flex, potential_pos_flex, cost_neg_flex .- cost_no_flex, potential_neg_flex
 end
 
-function plot_flexibility(timesteps, cost_pos_flex, potential_pos_flex, cost_neg_flex, potential_neg_flex, obj_value)
+function plot_flexibility(timesteps, cost_pos_flex, potential_pos_flex, cost_neg_flex, potential_neg_flex)
     plt_cost = plot()
     plt_pot = plot()
-    plot!(plt_cost, timesteps, (cost_pos_flex .- obj_value)./ potential_pos_flex, label = "price of positive flexibility")
-    plot!(plt_cost, timesteps, (cost_neg_flex .- obj_value)./ potential_neg_flex, label = "price of negative flexibility")
+    plot!(plt_cost, timesteps, cost_pos_flex ./ potential_pos_flex, label = "price of positive flexibility")
+    plot!(plt_cost, timesteps, cost_neg_flex ./ potential_neg_flex, label = "price of negative flexibility")
     plot!(plt_pot, timesteps, potential_pos_flex, fillrange = 0, fillalpha = 0.35, label = "positive flexibility potential")
     plot!(plt_pot, timesteps, potential_neg_flex, fillrange = 0, fillalpha = 0.35, label = "negative flexibility potential")
     display(plot(plt_cost, plt_pot, layout = (2, 1)))
