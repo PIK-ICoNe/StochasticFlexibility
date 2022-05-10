@@ -15,8 +15,7 @@ end
 """
 Find maximum available flexibility and its cost at all points in some time interval.
 """
-function analyze_flexibility_potential(sp, timesteps)
-    decision = optimal_decision(sp)
+function analyze_flexibility_potential(sp, timesteps; decision = optimal_decision(sp))
     cost_no_flex = evaluate_decision_wrapper(sp, optimal_decision(sp), no_flex_pseudo_sampler()[1])
     L = length(timesteps)
     cost_pos_flex = zeros(L)
@@ -59,13 +58,12 @@ Parameters:
 - tol - result tolerance
 - maxiters - maximum number of iterations
 """
-function find_f_max(sp, t, s, tol; maxiter = 100)
+function find_f_max(sp, t, s, od, tol; maxiter = 100)
     a = 0.
     b = 10000.
     cost_a = 0.
     cost_b = 0.
     i = 0
-    od =  optimal_decision(sp)
     scen = @scenario t_xi = t s_xi = s F_xi = a probability = 1.
     cost_a = evaluate_decision_wrapper(sp,od,scen)
     if cost_a == Inf

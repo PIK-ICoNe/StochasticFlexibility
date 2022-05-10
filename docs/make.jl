@@ -18,26 +18,40 @@ using Literate
 # precompile stuff now so the output won't show up in the docs
 # using StochasticPrograms
 
+##
 
 # generate examples
-examples = [
-    joinpath(@__DIR__, "..", "manuscripts", "flexibility_by_stochastic_programing.jl"),
+manuscript_path = realpath(joinpath(@__DIR__, "..", "manuscripts"))
+manuscripts = [
+    joinpath(manuscript_path, "flexibility_by_stochastic_programing.jl"),
 ]
-OUTPUT = joinpath(@__DIR__, "src/generated")
+OUTPUT = joinpath(@__DIR__, "src", "generated")
 isdir(OUTPUT) && rm(OUTPUT, recursive=true)
 mkpath(OUTPUT)
 
-for ex in examples
-    Literate.markdown(ex, OUTPUT; documenter = true)
-    Literate.script(ex, OUTPUT)
+##
+
+function set_manuscript_dir(content)
+    content = replace(content, "@__DIR__" => "\"$manuscript_path\"")
+    return content
 end
 
-makedocs(; sitename = "Stochastic Flexibility Optimization",
+for m in manuscripts
+    Literate.markdown(m, OUTPUT; documenter = true, preprocess=set_manuscript_dir)
+    Literate.script(m, OUTPUT; preprocess=set_manuscript_dir)
+end
+
+##
+
+makedocs(;
+    sitename = "Stochastic Flexibility Optimization",
     pages=[
         "Flexibility analysis using Stochastic Programing" => "index.md",
         "Manuscripts" => ["Main Story" => "generated/flexibility_by_stochastic_programing.md"]
     ],
 )
+
+##
 
 deploydocs(;
     repo="github.com/PIK-ICoNe/StochasticFlexibility",

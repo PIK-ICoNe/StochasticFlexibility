@@ -1,10 +1,10 @@
 ## Everything runs in the Project environment on the basepath
 
-basepath = realpath(joinpath((@__DIR__, "..")))
+basepath = realpath(joinpath(@__DIR__, ".."))
 
 using Pkg
 Pkg.activate(basepath)
-Pkg.instantiate()
+# Pkg.instantiate()
 
 using DataFrames
 using CSV
@@ -23,9 +23,9 @@ The model is defined in the file sp_model.jl, analysis and utility functions are
 
 #- 
 
-include(joinpath((basepath, "src", "sp_model.jl")))
-include(joinpath((basepath, "src", "plot_utils.jl")))
-include(joinpath((basepath, "src", "evaluation_utils.jl")))
+include(joinpath(basepath, "src", "sp_model.jl"))
+include(joinpath(basepath, "src", "plot_utils.jl"))
+include(joinpath(basepath, "src", "evaluation_utils.jl"))
 
 #-
 
@@ -36,7 +36,7 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 offset = 6531
 timesteps = 1:168
 
-data = CSV.read(joinpath((basepath, "timeseries", "basic_example.csv")), DataFrame)
+data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
 
 pv = data[timesteps .+ offset, 3]
 wind = data[timesteps .+ offset, 4]
@@ -110,9 +110,11 @@ At the timepoint $t^F$ only the fast reacting components can adjust their schedu
 After the event we give the system a time $t_r$ to recover back to its original schedule. Here the slow components can contribute. Thus we have:
 
 ```math
-c(F,t^F) = \min_{O^t} C'(\overline I_{nf}, O^t, F, t_f)
-O^{s,t} = \overline O^t_{nf} \forall t \leq t^F t > t^F + t_r
-O^{f,t} = \overline O^t_{nf} \forall t < t^F t > t^F + t_r
+\begin{aligned}
+c(F,t^F) &= \min_{O^t} C'(\overline I_{nf}, O^t, F, t_f)  \\
+O^{s,t} &= \overline O^t_{nf} \forall t \leq t^F t > t^F + t_r \\
+O^{f,t} &= \overline O^t_{nf} \forall t < t^F t > t^F + t_r
+\end{aligned}
 ```
 
 This is the cost of flexibility in the sense of Harder et.al. This optimization is not always feasible.
