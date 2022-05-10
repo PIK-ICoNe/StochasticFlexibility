@@ -14,9 +14,9 @@ using CSV
 offset = 6531
 timesteps = 1:168
 
-pv = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 3]
-wind = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 4]
-demand = CSV.read("timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 2]
+pv = CSV.read("../timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 3]
+wind = CSV.read("../timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 4]
+demand = CSV.read("../timeseries/basic_example.csv", DataFrame)[timesteps .+ offset, 2]
 
 ##
 

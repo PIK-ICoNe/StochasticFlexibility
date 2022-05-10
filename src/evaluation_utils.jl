@@ -23,9 +23,10 @@ function analyze_flexibility_potential(sp, timesteps)
     cost_neg_flex = zeros(L)
     potential_pos_flex = zeros(L)
     potential_neg_flex = zeros(L)
-    Threads.@threads for t in timesteps
-        potential_pos_flex[t], cost_pos_flex[t] = find_f_max(sp,t,1,decision,10.)
-        potential_neg_flex[t], cost_neg_flex[t] = find_f_max(sp,t,-1,decision,10.)
+    Threads.@threads for i in 1:length(timesteps)
+        t = timesteps[i]
+        potential_pos_flex[i], cost_pos_flex[i] = find_f_max(sp,t,1,decision,100.)
+        potential_neg_flex[i], cost_neg_flex[i] = find_f_max(sp,t,-1,decision,100.)
     end
     return cost_pos_flex .- cost_no_flex, potential_pos_flex, cost_neg_flex .- cost_no_flex, potential_neg_flex
 end
