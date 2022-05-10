@@ -12,6 +12,9 @@ function evaluate_decision_wrapper(p, decision, scenario)
     return cost
 end
 
+"""
+Find maximum available fleibility and its cost at all points in some time interval.
+"""
 function analyze_flexibility_potential(sp, timesteps)
     decision = optimal_decision(sp)
     cost_no_flex = evaluate_decision_wrapper(sp, optimal_decision(sp), no_flex_pseudo_sampler()[1])
@@ -37,6 +40,9 @@ function plot_flexibility(timesteps, cost_pos_flex, potential_pos_flex, cost_neg
     display(plot(plt_cost, plt_pot, layout = (2, 1)))
 end
 
+"""
+Find distribution of maximum available flexibilities.
+"""
 function flexibility_availability!(plt, flex_potential; plot_options...)
     p_sorted = sort(unique(flex_potential))
     fraction = 1 .-[sum(abs.(flex_potential[:]).<=abs(f)) for f in p_sorted]./length(flex_potential)
