@@ -96,13 +96,15 @@ cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f = analyze_flexibility_potential(sp_
 
 plot_flexibility(1:t_max, cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f, objective_value(sp))
 
+##
+
 #label_av = ["+ flexibility in scenario-aware system", "+ flexibility in scenario-unaware system"]
 begin
 plt_av = plot();
-flexibility_availability(plt_av, pot_pos, label = "positive flexbility unaware");
-flexibility_availability(plt_av, pot_pos_f, label = "positive fleibility aware");
-flexibility_availability(plt_av, pot_neg, label = "negative flexibility unaware");
-flexibility_availability(plt_av, pot_neg_f, label = "negative flexibility aware");
+flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware");
+flexibility_availability!(plt_av, pot_pos_f, label = "positive fleibility aware");
+flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware");
+flexibility_availability!(plt_av, pot_neg_f, label = "negative flexibility aware");
 display(plt_av)
 end
 ##
