@@ -4,6 +4,19 @@ using Random
 ##
 """
 Default values of system parameters.
+- c_i - price of buying energy from the grid, Euro/kW
+- c_o - price of selling energy to the grid, Euro/kW
+- c_sto_op - price of operating storage. Could be replaced with storage losses. TODO
+- asset_lifetime - expected lifetime of a component in years. Needed to bring investment and operational costs to the same timescale
+- c_pv, c_wind - price of installing pv and wind components per kW peak, Euro/kWp
+- c_storage - price of storage, Euro/kW
+- c_heat_storage - TODO: heat layer units
+- c_heatpump
+- inv_budget - maximum investment budget, Euro
+- recovery_time - time after the event, in which the system is allowed to deviate from background optimal schedule, h
+- COP - heatpump efficiency coefficient
+- heat_losses - losses in the heat storage
+- penalty - price of non-delivery of flexibility, Euro
 """
 default_es_pars = Dict((
     :c_i => .3,
@@ -23,7 +36,7 @@ default_es_pars = Dict((
 ))
 
 """
-Sample n scenarios.
+Draw a sample of n scenarios
 """
 function simple_flex_sampler(n, F_max, t_max)
     [@scenario t_xi = rand(1:t_max) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = 1/n 
@@ -31,7 +44,8 @@ function simple_flex_sampler(n, F_max, t_max)
 end
 
 """
-Get an array with a single pseudo scenario with no flexiblity. This is useful for optimizing the system as if no flexibilty was introduced.
+Get an array with a single pseudo scenario with no flexiblity. 
+This is useful for optimizing the system as if no flexibilty was introduced.
 """
 function no_flex_pseudo_sampler()
     [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.

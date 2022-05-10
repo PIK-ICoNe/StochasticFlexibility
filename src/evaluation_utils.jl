@@ -1,7 +1,7 @@
 using Plots
 
 """
-Suppress output ov evaluate_decision, and deal with solvers that error on infeasibility.
+Suppress output of evaluate_decision, and deal with solvers that error on infeasibility.
 """
 function evaluate_decision_wrapper(p, decision, scenario)
     cost = 0.
@@ -13,7 +13,7 @@ function evaluate_decision_wrapper(p, decision, scenario)
 end
 
 """
-Find maximum available fleibility and its cost at all points in some time interval.
+Find maximum available flexibility and its cost at all points in some time interval.
 """
 function analyze_flexibility_potential(sp, timesteps)
     decision = optimal_decision(sp)
@@ -52,22 +52,29 @@ end
 
 """
 Bisection search for maximum felxibility potential.
+Parameters:
+- sp - optimized stochastic program
+- t - time step
+- s - sign of flexibility scenario
+- tol - result tolerance
+- maxiters - maximum number of iterations
 """
-function find_f_max(p,t,s,od,tol; maxiter = 100)
+function find_f_max(sp, t, s, tol; maxiter = 100)
     a = 0.
     b = 10000.
     cost_a = 0.
     cost_b = 0.
     i = 0
+    od =  optimal_decision(sp)
     scen = @scenario t_xi = t s_xi = s F_xi = a probability = 1.
-    cost_a = evaluate_decision_wrapper(p,od,scen)
+    cost_a = evaluate_decision_wrapper(sp,od,scen)
     if cost_a == Inf
         return 0., cost_a
     else
         while b-a>tol && i<=maxiter
             i+=1
             scen = @scenario t_xi = t s_xi = s F_xi = b probability = 1.
-            cost_b = evaluate_decision_wrapper(p,od,scen)
+            cost_b = evaluate_decision_wrapper(sp,od,scen)
             if cost_b == Inf
                 b = (a+b)/2
             else
