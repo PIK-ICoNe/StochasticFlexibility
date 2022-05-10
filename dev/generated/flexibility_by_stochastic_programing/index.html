@@ -9,11 +9,104 @@ Pkg.instantiate()
 
 using DataFrames
 using CSV
-using Clp</code></pre><h1 id="Flexibility-analysis-and-optimization"><a class="docs-heading-anchor" href="#Flexibility-analysis-and-optimization">Flexibility analysis and optimization</a><a id="Flexibility-analysis-and-optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Flexibility-analysis-and-optimization" title="Permalink"></a></h1><p>We take an energy system and analyze and optimize its flexibility potential.</p><p>Te model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.</p><pre><code class="language- hljs">include(joinpath((basepath, &quot;src&quot;, &quot;sp_model.jl&quot;)))
+using Clp
+using Statistics</code></pre><h1 id="Flexibility-analysis-and-optimization"><a class="docs-heading-anchor" href="#Flexibility-analysis-and-optimization">Flexibility analysis and optimization</a><a id="Flexibility-analysis-and-optimization-1"></a><a class="docs-heading-anchor-permalink" href="#Flexibility-analysis-and-optimization" title="Permalink"></a></h1><p>We take an energy system and analyze and optimize its flexibility potential.</p><p>Te model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.</p><pre><code class="language- hljs">include(joinpath((basepath, &quot;src&quot;, &quot;sp_model.jl&quot;)))
 include(joinpath((basepath, &quot;src&quot;, &quot;plot_utils.jl&quot;)))
 include(joinpath((basepath, &quot;src&quot;, &quot;evaluation_utils.jl&quot;)))</code></pre><p>We load timeseries for photovoltaic (pv) and wind potential as well as demand.</p><pre><code class="language- hljs">offset = 6531
 timesteps = 1:168
 
 pv = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 3]
 wind = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 4]
-demand = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 2]</code></pre><p>We load timeseries for photovoltaic (pv) and wind potential as well as demand.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Flexibility analysis using Stochastic Programing</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Tuesday 10 May 2022 13:36">Tuesday 10 May 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+demand = CSV.read(&quot;timeseries/basic_example.csv&quot;, DataFrame)[timesteps .+ offset, 2]
+
+#</code></pre><p>Next we continue the set up. Our model comes with default parameters, which we slightly adjust here. We use some arbitrary values to define a dummy heat demand.</p><pre><code class="language- hljs">pars = copy(default_es_pars)
+
+average_hourly_demand = mean(demand)
+
+pars[:recovery_time] = 24
+pars[:c_storage] = 100.
+pars[:c_pv] = 300.
+pars[:c_wind] = 800.
+pars[:c_sto_op] = 0.00001
+
+heatdemand = copy(demand)./300.
+heatdemand0 = zeros(length(demand))
+
+#</code></pre><p>The model itself is constructed by the function define<em>energy</em>system</p><pre><code class="language- hljs">es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+
+#</code></pre><p>This contains investment variables which we collectively call <span>$I$</span>, and the operational schedule <span>$O^t$</span>. The total cost given a certain investment <span>$I$</span> and schedule <span>$O^t$</span> is denoted <span>$C(I, O^t)$</span>.</p><p>We now can optimize the system, initialy while ignoring flexibility:</p><pre><code class="language- hljs">sp_no_flex = instantiate(es, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+
+optimize!(sp_no_flex)
+
+no_flex_decision = optimal_decision(sp_no_flex)
+
+objective_value(sp_no_flex)
+
+#</code></pre><p class="math-container">\[\overline I_{nf} , \overline O^t_{nf} = \argmin_{I, O^t} C(I, O^t)\]</p><p>We can now analyse how much flexibility is available at each point in time with this investment and this schedule.</p><p>To do so we distinguish between parts of the operational schedule that can react to a flexibility demand in the moment that it occurs, and those that can only adapt later to help recover the system back towards its previously planned schedule. Essentially into slow components <span>$O^{s,t}$</span> and fast components <span>$O^{f,t}$</span></p><p class="math-container">\[O^t = (O^{f,t}, O^{s,t})\]</p><p>We then consider the cost of the system when confronted with an additional negative or positive demand <span>$F$</span> at some timepoint <span>$t^F$</span>. At the timepoint <span>$t^F$</span> only the fast reacting components can adjust their schedule, the slow components still have to stick to the previous schedule. After the event we give the system a time <span>$t_r$</span> to recover back to its original schedule. Here the slow components can contribute. Thus we have:</p><p class="math-container">\[c(F,t^F) = \min_{O^t} C&#39;(\overline I_{nf}, O^t, F, t_f)
+O^{s,t} = \overline O^t_{nf} \forall t \leq t^F t &gt; t^F + t_r
+O^{f,t} = \overline O^t_{nf} \forall t &lt; t^F t &gt; t^F + t_r\]</p><p>This is the cost of flexibility in the sense of Harder et.al. This optimization is not always feasible. The maximum and minimum <span>$F$</span> for which it is feasible is called the positive and negative flexibility potential <span>$pot_\pm$</span>. The marginal cost of flexibility is <span>$cost_{\pm}(t) = c(pot_\pm(t), t) / pot_\pm(t)$</span>. Using our model above we can analyze this in the following way:</p><pre><code class="language- hljs">cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, 20:50)
+
+plot_flexibility(20:50, cost_pos, pot_pos, cost_neg, pot_neg)
+
+#</code></pre><p>Under the hood this uses the evaluate_decision function of stochastic programs that evaluates the cost of a specified scenario given a decision.</p><p>We can go further if we introduce a certain distribution of flexibility demands. Then we can choose to operate the system in such a way that the expected cost, including the expected cost of flexibility, is minimized. This is exactly a two stage stochastic programming problem with <span>$c(F,t)$</span> as the second stage.</p><p>We can start by taking a simple uniform distribution between some maximum flexibility demand that can occur at any time that leaves enough space for the recovery window:</p><pre><code class="language- hljs">n = 100
+F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
+t_max = length(pv) - es.parameters[2].defaults[:recovery_time]
+
+scens = simple_flex_sampler(n, F_max, t_max)
+
+#</code></pre><p>We can now evaluate the expected cost of running the system determined above with this flexibility distribution.</p><pre><code class="language- hljs">sp_flex = instantiate(es, scens, optimizer = Clp.Optimizer)
+
+evaluate_decision(sp_flex, no_flex_decision)
+
+#</code></pre><p>This is infinite as the system as built above can not actually provide the desired flexibility at all times. One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.</p><pre><code class="language- hljs">es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = false)
+
+sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
+
+
+#</code></pre><p>Now we can evaluate the expected cost of flexibility in the system:</p><pre><code class="language- hljs">evaluate_decision(sp_reg_flex, no_flex_decision)
+
+#</code></pre><p>This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost. To do so we fix the investment to the system we have and then optimize the remaining variables:</p><pre><code class="language- hljs">investments_nf = get_investments(sp_no_flex)
+fix_investment!(sp_flex, investments_nf)
+fix_investment!(sp_reg_flex, investments_nf)
+
+optimize!(sp_flex)
+optimize!(sp_reg_flex)
+
+flex_no_invest_decision = optimal_decision(sp_flex)
+reg_flex_no_invest_decision = optimal_decision(sp_reg_flex)
+
+#</code></pre><p>Then evaluating the decision we find much more reasonable values:</p><pre><code class="language- hljs">evaluate_decision(sp_reg_flex, flex_no_invest_decision)
+
+#
+evaluate_decision(sp_reg_flex, reg_flex_no_invest_decision)
+
+#
+
+relative_flex_cost = evaluate_decision(sp_reg_flex, flex_no_invest_decision) / objective_value(sp_no_flex) - 1.
+
+#</code></pre><p>It is interesting to note that this way servicing the flexibility is actually not very expensive compared to the baseline cost of the system if there were no flexibility demands, with the relative cost of flexibility coming in at 0.2% here.</p><p>We can also again evaluate the amount of flexibility available at each point in time, and the associated cost:</p><p>To find flexibility potentials we right now have to use the unregularized model:</p><pre><code class="language- hljs">cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, 20:50)
+
+plot_flexibility(20:50, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
+
+#</code></pre><p>This shows that the model is not actually able to guarantee that there is flexibility at all times. However, it dramatically increases the amount of available flexibility:</p><pre><code class="language- hljs">plt_av = plot();
+flexibility_availability!(plt_av, pot_pos, label = &quot;positive flexbility unaware&quot;);
+flexibility_availability!(plt_av, pot_pos_flex, label = &quot;positive flexibility aware&quot;);
+flexibility_availability!(plt_av, pot_neg, label = &quot;negative flexibility unaware&quot;);
+flexibility_availability!(plt_av, pot_neg_flex, label = &quot;negative flexibility aware&quot;);
+display(plt_av)
+
+#</code></pre><p>We can of course also optimize the overall system investment to take flexibility into account.</p><pre><code class="language- hljs">unfix_investment!(sp_flex, investments_nf)
+unfix_investment!(sp_reg_flex, investments_nf)
+
+optimize!(sp_flex)
+optimize!(sp_reg_flex)
+
+flex_invest_decision = optimal_decision(sp_flex)
+reg_flex_invest_decision = optimal_decision(sp_reg_flex)</code></pre><p>Then the relative cost of the system exposed to flexibility is further reduced:</p><pre><code class="language- hljs">evaluate_decision(sp_reg_flex, flex_invest_decision)
+
+#
+evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
+
+#
+
+relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Flexibility analysis using Stochastic Programing</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Tuesday 10 May 2022 15:23">Tuesday 10 May 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
