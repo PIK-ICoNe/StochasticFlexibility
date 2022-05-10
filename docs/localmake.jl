@@ -1,8 +1,13 @@
 #! julia
 
+basepath = realpath(joinpath((@__DIR__, "..")))
+
 using Pkg
-Pkg.activate(@__DIR__)
+Pkg.activate(basepath)
 Pkg.instantiate()
+
+##
+
 using LiveServer
 
 run = true

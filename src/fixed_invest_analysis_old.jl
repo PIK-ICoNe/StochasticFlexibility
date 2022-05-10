@@ -1,6 +1,6 @@
 cd(@__DIR__)
 using Pkg
-Pkg.activate(".")
+Pkg.activate("..")
 ##
 
 include("sp_model.jl")

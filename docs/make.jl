@@ -1,7 +1,11 @@
+
+basepath = realpath(joinpath((@__DIR__, "..")))
+
 using Pkg
-if !(Pkg.project().path == joinpath(@__DIR__, "Project.toml"))
-    Pkg.activate(@__DIR__)
-end
+Pkg.activate(basepath)
+Pkg.instantiate()
+
+##
 
 # headless GK to fix ci
 ENV["GKSwstype"] = "100"
