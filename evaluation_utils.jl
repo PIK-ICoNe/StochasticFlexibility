@@ -1,5 +1,8 @@
 using Plots
 
+"""
+Suppress output ov evaluate_decision, and deal with solvers that error on infeasibility.
+"""
 function evaluate_decision_wrapper(p, decision, scenario)
     cost = 0.
     try redirect_stdout((() -> cost = evaluate_decision(p, decision, scenario)), devnull)
@@ -39,31 +42,33 @@ function flexibility_availability!(plt, flex_potential; plot_options...)
     plot!(plt, p_sorted, fraction)
 end
 
+"""
+Bisection search for maximum felxibility potential.
+"""
 function find_f_max(p,t,s,od,tol; maxiter = 100)
     a = 0.
     b = 10000.
+    cost_a = 0.
+    cost_b = 0.
     i = 0
-    scen = @scenario t_xi = t s_xi = s F_xi = 0. probability = 1.
-    cost = evaluate_decision_wrapper(p,od,scen)
-    if cost == Inf
-        return 0.,cost
+    scen = @scenario t_xi = t s_xi = s F_xi = a probability = 1.
+    cost_a = evaluate_decision_wrapper(p,od,scen)
+    if cost_a == Inf
+        return 0., cost_a
     else
         while b-a>tol && i<=maxiter
             i+=1
             scen = @scenario t_xi = t s_xi = s F_xi = b probability = 1.
-            cost = evaluate_decision_wrapper(p,od,scen)
-            if cost == Inf
+            cost_b = evaluate_decision_wrapper(p,od,scen)
+            if cost_b == Inf
                 b = (a+b)/2
             else
                 a = b
+                cost_a = cost_b
                 b *= 2
             end
         end
-        if cost == Inf
-            scen = @scenario t_xi = t s_xi = s F_xi = b-tol probability = 1.
-            cost = evaluate_decision_wrapper(p,od,scen)
-        end
-        return s*b,cost
+        return s*a, cost_a
     end
 end
 
