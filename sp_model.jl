@@ -159,7 +159,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
             @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] + u_wind * wind[t_xi]
              - demand[t_xi] + sto_in2[1] - sto_out2[1]
-             - heatpumpflow2[1] + F_xi * s_xi == 0)
+             - heatpumpflow2[1] - F_xi * s_xi == 0) # TODO CHeck that our sign convention on positive and negative flexibility agrees with literature
             if strict_flex
                 @constraint(model, gci2[1] == gci[t_xi])
                 @constraint(model, gco2[1] == gco[t_xi])

@@ -17,7 +17,7 @@ using Literate
 
 # generate examples
 examples = [
-    joinpath(@__DIR__, "..", "examples", "flexibility_optimization.jl"),
+    joinpath(@__DIR__, "..", "manuscripts", "flexibility_by_stochastic_programing.jl"),
 ]
 OUTPUT = joinpath(@__DIR__, "src/generated")
 isdir(OUTPUT) && rm(OUTPUT, recursive=true)
@@ -30,8 +30,8 @@ end
 
 makedocs(; sitename = "Stochastic Flexibility Optimization",
     pages=[
-        "Home" => "index.md",
-        "Examples" => ["Simple Example" => "generated/flexibility_optimization.md"]
+        "Flexibility analysis using Stochastic Programing" => "index.md",
+        "Manuscripts" => ["Main Story" => "generated/flexibility_by_stochastic_programing.md"]
     ],
 )
 

@@ -87,12 +87,15 @@ optimize!(sp_f)
 
 plot_results(sp_f, pv, wind, demand, hd = heatdemand, s = 8, stage_1 = [:gci, :gco], stage_2 = [:gci2, :gco2], inv_dict = fixed_investments)
 ##
-cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp, 1:t_max)
+@time cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp, 1:t_max)
 
 plot_flexibility(1:t_max, cost_pos, pot_pos, cost_neg, pot_neg)
 
 ##
+using Dates
+t1 = Dates.now()
 cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f = analyze_flexibility_potential(sp_f, 1:t_max)
+t2 = Dates.now()
 
 plot_flexibility(1:t_max, cost_pos_f, pot_pos_f, cost_neg_f, pot_neg_f)
 
