@@ -1,24 +1,23 @@
 # Everything runs in the Project environment on the basepath
 
-basepath = realpath(joinpath((@__DIR__, "..")))
+basepath = realpath(joinpath("/home/runner/work/StochasticFlexibility/StochasticFlexibility/manuscripts", ".."))
 
 using Pkg
 Pkg.activate(basepath)
-Pkg.instantiate()
 
 using DataFrames
 using CSV
 using Clp
 using Statistics
 
-include(joinpath((basepath, "src", "sp_model.jl")))
-include(joinpath((basepath, "src", "plot_utils.jl")))
-include(joinpath((basepath, "src", "evaluation_utils.jl")))
+include(joinpath(basepath, "src", "sp_model.jl"))
+include(joinpath(basepath, "src", "plot_utils.jl"))
+include(joinpath(basepath, "src", "evaluation_utils.jl"))
 
 offset = 6531
 timesteps = 1:168
 
-data = CSV.read(joinpath((basepath, "timeseries", "basic_example.csv")), DataFrame)
+data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
 
 pv = data[timesteps .+ offset, 3]
 wind = data[timesteps .+ offset, 4]
