@@ -2,7 +2,7 @@ using Plots
 
 function evaluate_decision_wrapper(p, decision, scenario)
     cost = 0.
-    try redirect_stdout((() -> cost = evaluate_decision(p, decision, scenario)), open("/dev/null", "w")) # Linux/Mac systems only...
+    try redirect_stdout((() -> cost = evaluate_decision(p, decision, scenario)), devnull)
     catch e
         cost = Inf
     end
@@ -33,11 +33,10 @@ function plot_flexibility(timesteps, cost_pos_flex, potential_pos_flex, cost_neg
     display(plot(plt_cost, plt_pot, layout = (2, 1)))
 end
 
-function flexibility_availability(plt, flex_potential; plot_options...)
-        p_sorted = sort(unique(flex_potential))
-        fraction = 1 .-[sum(abs.(flex_potential[:]).<=abs(f)) for f in p_sorted]./length(flex_potential)
-        plot!(plt, p_sorted, fraction)
-    display(plt_av)
+function flexibility_availability!(plt, flex_potential; plot_options...)
+    p_sorted = sort(unique(flex_potential))
+    fraction = 1 .-[sum(abs.(flex_potential[:]).<=abs(f)) for f in p_sorted]./length(flex_potential)
+    plot!(plt, p_sorted, fraction)
 end
 
 function find_f_max(p,t,s,od,tol; maxiter = 100)
