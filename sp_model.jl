@@ -18,7 +18,7 @@ default_es_pars = Dict((
     :inv_budget => 500000000.,
     :recovery_time => 72,
     :COP => 0.8,
-    :heat_losses => 0.01
+    :heat_losses => 0.01,
     :penalty => 10000.
 ))
 
