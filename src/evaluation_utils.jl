@@ -45,7 +45,7 @@ Find distribution of maximum available flexibilities.
 """
 function flexibility_availability!(plt, flex_potential; plot_options...)
     p_sorted = sort(unique(flex_potential))
-    fraction = 1 .-[sum(abs.(flex_potential[:]).<=abs(f)) for f in p_sorted]./length(flex_potential)
+    fraction = [sum(abs.(flex_potential[:]).>=abs(f)) for f in p_sorted]./length(p_sorted)
     plot!(plt, p_sorted, fraction)
 end
 
