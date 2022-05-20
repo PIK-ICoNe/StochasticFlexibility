@@ -88,82 +88,82 @@ scens = simple_flex_sampler(n, F_max, t_max)
 
 #</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Vector{StochasticPrograms.Scenario{NamedTuple{(:t_xi, :s_xi, :F_xi), Tuple{Int64, Int64, Float64}}}}:
  Scenario with probability 0.01
-  t_xi: 10
-  s_xi: 1
-  F_xi: 15917.052020572357
- Scenario with probability 0.01
-  t_xi: 143
+  t_xi: 36
   s_xi: -1
-  F_xi: 22190.26077073644
+  F_xi: 5070.636000084364
  Scenario with probability 0.01
-  t_xi: 6
+  t_xi: 9
   s_xi: 1
-  F_xi: 7281.913907790781
+  F_xi: 7389.337160928179
  Scenario with probability 0.01
-  t_xi: 87
+  t_xi: 56
   s_xi: -1
-  F_xi: 20135.575349112034
+  F_xi: 20981.22760454191
  Scenario with probability 0.01
-  t_xi: 135
+  t_xi: 114
   s_xi: -1
-  F_xi: 14195.830911037601
+  F_xi: 13884.331107405807
  Scenario with probability 0.01
-  t_xi: 58
+  t_xi: 71
   s_xi: -1
-  F_xi: 22847.109571023186
+  F_xi: 9868.534254820923
  Scenario with probability 0.01
-  t_xi: 80
+  t_xi: 61
   s_xi: -1
-  F_xi: 12946.231290092861
+  F_xi: 15784.251109213452
  Scenario with probability 0.01
-  t_xi: 79
+  t_xi: 89
   s_xi: 1
-  F_xi: 10502.144017452645
+  F_xi: 1183.840089316857
  Scenario with probability 0.01
-  t_xi: 67
+  t_xi: 63
   s_xi: 1
-  F_xi: 17789.874298031304
+  F_xi: 3381.4799715219624
  Scenario with probability 0.01
-  t_xi: 68
+  t_xi: 123
+  s_xi: -1
+  F_xi: 21169.661524325096
+ Scenario with probability 0.01
+  t_xi: 92
   s_xi: 1
-  F_xi: 17805.10383186878
+  F_xi: 4538.482193259644
  ⋮
  Scenario with probability 0.01
-  t_xi: 30
+  t_xi: 114
   s_xi: 1
-  F_xi: 15431.233254755189
+  F_xi: 17032.600634870705
  Scenario with probability 0.01
-  t_xi: 10
-  s_xi: 1
-  F_xi: 8524.526124225858
- Scenario with probability 0.01
-  t_xi: 118
-  s_xi: 1
-  F_xi: 4283.992517183369
+  t_xi: 137
+  s_xi: -1
+  F_xi: 12414.318801621252
  Scenario with probability 0.01
   t_xi: 126
   s_xi: 1
-  F_xi: 13670.299443778827
+  F_xi: 12703.25662569154
  Scenario with probability 0.01
-  t_xi: 16
+  t_xi: 102
   s_xi: 1
-  F_xi: 3080.7066805989034
+  F_xi: 20411.220567734315
  Scenario with probability 0.01
-  t_xi: 63
-  s_xi: -1
-  F_xi: 10999.472177079497
- Scenario with probability 0.01
-  t_xi: 70
-  s_xi: -1
-  F_xi: 11487.228816416435
- Scenario with probability 0.01
-  t_xi: 17
+  t_xi: 42
   s_xi: 1
-  F_xi: 2350.8209622729883
+  F_xi: 10780.934707443632
  Scenario with probability 0.01
-  t_xi: 16
+  t_xi: 89
+  s_xi: 1
+  F_xi: 12780.308144560848
+ Scenario with probability 0.01
+  t_xi: 81
+  s_xi: 1
+  F_xi: 22379.528687284892
+ Scenario with probability 0.01
+  t_xi: 112
   s_xi: -1
-  F_xi: 24360.337633514424</code></pre><p>We can now evaluate the expected cost of running the system determined above with this flexibility distribution.</p><pre><code class="language-julia hljs">sp_flex = instantiate(es, scens, optimizer = Clp.Optimizer)
+  F_xi: 9578.703087191201
+ Scenario with probability 0.01
+  t_xi: 54
+  s_xi: 1
+  F_xi: 25569.707758680433</code></pre><p>We can now evaluate the expected cost of running the system determined above with this flexibility distribution.</p><pre><code class="language-julia hljs">sp_flex = instantiate(es, scens, optimizer = Clp.Optimizer)
 
 evaluate_decision(sp_flex, no_flex_decision)
 
@@ -179,7 +179,7 @@ sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
 Structure: Deterministic equivalent
 Solver name: Clp</code></pre><p>Now we can evaluate the expected cost of flexibility in the system:</p><pre><code class="language-julia hljs">evaluate_decision(sp_reg_flex, no_flex_decision)
 
-#</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3.468563623429618e7</code></pre><p>This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost. To do so we fix the investment to the system we have and then optimize the remaining variables:</p><pre><code class="language-julia hljs">investments_nf = get_investments(sp_no_flex)
+#</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3.462640609678942e7</code></pre><p>This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost. To do so we fix the investment to the system we have and then optimize the remaining variables:</p><pre><code class="language-julia hljs">investments_nf = get_investments(sp_no_flex)
 fix_investment!(sp_flex, investments_nf)
 fix_investment!(sp_reg_flex, investments_nf)
 
@@ -209,7 +209,7 @@ reg_flex_no_invest_decision = optimal_decision(sp_reg_flex)
       0.0
       0.0
       0.0
-  10080.186664524039</code></pre><p>Then evaluating the decision we find much more reasonable values:</p><pre><code class="language-julia hljs">evaluate_decision(sp_reg_flex, flex_no_invest_decision)
+      0.0</code></pre><p>Then evaluating the decision we find much more reasonable values:</p><pre><code class="language-julia hljs">evaluate_decision(sp_reg_flex, flex_no_invest_decision)
 
 #
 evaluate_decision(sp_reg_flex, reg_flex_no_invest_decision)
@@ -218,7 +218,7 @@ evaluate_decision(sp_reg_flex, reg_flex_no_invest_decision)
 
 relative_flex_cost = evaluate_decision(sp_reg_flex, flex_no_invest_decision) / objective_value(sp_no_flex) - 1.
 
-#</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.0010877076266770924</code></pre><p>It is interesting to note that this way servicing the flexibility is actually not very expensive compared to the baseline cost of the system if there were no flexibility demands, with the relative cost of flexibility coming in at 0.2% here.</p><p>We can also again evaluate the amount of flexibility available at each point in time, and the associated cost:</p><p>To find flexibility potentials we right now have to use the unregularized model:</p><pre><code class="language-julia hljs">cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, 20:50)
+#</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.000989655634461073</code></pre><p>It is interesting to note that this way servicing the flexibility is actually not very expensive compared to the baseline cost of the system if there were no flexibility demands, with the relative cost of flexibility coming in at 0.2% here.</p><p>We can also again evaluate the amount of flexibility available at each point in time, and the associated cost:</p><p>To find flexibility potentials we right now have to use the unregularized model:</p><pre><code class="language-julia hljs">cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, 20:50)
 
 plot_flexibility(20:50, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
 
@@ -237,16 +237,16 @@ optimize!(sp_reg_flex)
 
 flex_invest_decision = optimal_decision(sp_flex)
 reg_flex_invest_decision = optimal_decision(sp_reg_flex)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1517-element Vector{Float64}:
- 635503.1994093929
- 378721.797771795
-  63716.01959746107
- 166586.93594055928
- 182259.40414022747
- 221347.30304477442
- 245838.94316423585
- 204610.3072781689
- 132214.24500840076
-  70654.85236032972
+ 643609.069728527
+ 372666.0153438876
+  87844.66806331876
+ 167524.1893869265
+ 183164.50138190252
+ 222176.15798568213
+ 246598.58891772057
+ 204426.5522792941
+ 131562.472513686
+  70638.54462286597
       ⋮
       0.0
       0.0
@@ -265,4 +265,4 @@ evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
 
 relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
 
-#</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.0007828012378747751</code></pre><p>Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:</p><pre><code class="language-julia hljs">relative_flex_cost_inv / relative_flex_cost - 1.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-0.28032017182208735</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Flexibility analysis using Stochastic Programing</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Tuesday 10 May 2022 16:43">Tuesday 10 May 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+#</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.0009666607001654892</code></pre><p>Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:</p><pre><code class="language-julia hljs">relative_flex_cost_inv / relative_flex_cost - 1.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-0.023235288614413707</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Flexibility analysis using Stochastic Programing</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Friday 20 May 2022 10:10">Friday 20 May 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
