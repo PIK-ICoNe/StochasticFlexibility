@@ -37,7 +37,7 @@ function plot_flexibility(timesteps, cost_pos_flex, potential_pos_flex, cost_neg
     plot!(plt_cost, timesteps, cost_neg_flex ./ abs.(potential_neg_flex), label = "price of negative flexibility")
     plot!(plt_pot, timesteps, potential_pos_flex, fillrange = 0, fillalpha = 0.35, label = "positive flexibility potential")
     plot!(plt_pot, timesteps, potential_neg_flex, fillrange = 0, fillalpha = 0.35, label = "negative flexibility potential")
-    display(plot(plt_cost, plt_pot, layout = (2, 1)))
+    plot(plt_cost, plt_pot, layout = (2, 1))
 end
 
 """

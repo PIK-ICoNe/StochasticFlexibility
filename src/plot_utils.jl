@@ -45,9 +45,9 @@ function plot_results(sp, pv, w, d; hd = 0, s=1, stage_1=[:gci, :gco], stage_2=[
         plot!(plt_heat, (t_xi+1):(t_xi+recovery_time), value.(sp[2, :heat_sto_in2], s)-value.(sp[2, :heat_sto_out2], s), label = "heat storage use $s", linestyle=:dash, linewidth=2)
 
 
-        display(plot(plt_invest, plt, plt_sto, plt_heat, layout = (4,1)))
+        return plot(plt_invest, plt, plt_sto, plt_heat, layout = (4,1))
     else
-        display(plot(plt_invest, plt, plt_sto, layout = (3,1)))
+        return plot(plt_invest, plt, plt_sto, layout = (3,1))
     end
 
 end
@@ -69,5 +69,5 @@ function plot_recovery_window_deviation(sp; s = 1)
     plot!(plt_sto, stor_charge2-stor_charge, label = "soc2-soc")
 
 
-    display(plot(plt_gc, plt_sto, layout = (2, 1)))
+    plot(plt_gc, plt_sto, layout = (2, 1))
 end

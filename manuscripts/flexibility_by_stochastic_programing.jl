@@ -9,7 +9,10 @@ Pkg.activate(basepath)
 using DataFrames
 using CSV
 using Clp
-using Statistics
+using Statistics;
+
+using Random
+Random.seed!(1)
 
 #-
 
@@ -19,13 +22,21 @@ using Statistics
 We take an energy system and analyze and optimize its flexibility potential.
 
 The model is defined in the file sp_model.jl, analysis and utility functions are in the other two files.
+
+The parametrization is not completely done yet, and running the analysis for a whole year is very time intensive.
+The main optimization runs fine for a whole year, but analyzing the flexibility potential for many hours
+is computationally intense.
+
+We need to either start caching more computations, or find a way to speed up the evaluation further.
+
+This file gives a conceptual demonstration of what we do on a two week horizon.
 =#
 
 #- 
 
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "plot_utils.jl"))
-include(joinpath(basepath, "src", "evaluation_utils.jl"))
+include(joinpath(basepath, "src", "evaluation_utils.jl"));
 
 #-
 
@@ -33,8 +44,8 @@ include(joinpath(basepath, "src", "evaluation_utils.jl"))
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
 
-offset = 6531
-timesteps = 1:168
+offset = 24*7*14
+timesteps = 1:(24*7*2)
 
 data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
 
@@ -42,9 +53,13 @@ pv = data[timesteps .+ offset, 3]
 wind = data[timesteps .+ offset, 4]
 demand = data[timesteps .+ offset, 2]
 
-data = nothing # Free the memory
+data = nothing; # Free the memory
 
-##
+plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV")
+plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind")
+plot!(plt, timesteps, demand, label="Demand")
+plt
+#-
 
 #=
 Next we continue the set up. Our model comes with default parameters,
@@ -62,9 +77,9 @@ pars[:c_wind] = 800.
 pars[:c_sto_op] = 0.00001
 
 heatdemand = copy(demand)./300.
-heatdemand0 = zeros(length(demand))
+heatdemand0 = zeros(length(demand));
 
-##
+#-
 
 #=
 The model itself is constructed by the function define_energy_system
@@ -72,7 +87,7 @@ The model itself is constructed by the function define_energy_system
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
-##
+#-
 
 #=
 This contains investment variables which we collectively call $I$, and the operational schedule $O^t$.
@@ -82,6 +97,7 @@ We now can optimize the system, initialy while ignoring flexibility:
 =#
 
 sp_no_flex = instantiate(es, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+set_silent(sp_no_flex)
 
 optimize!(sp_no_flex)
 
@@ -89,7 +105,7 @@ no_flex_decision = optimal_decision(sp_no_flex)
 
 objective_value(sp_no_flex)
 
-##
+#-
 
 #=
 ```math
@@ -123,11 +139,13 @@ The marginal cost of flexibility is $cost_{\pm}(t) = c(pot_\pm(t), t) / pot_\pm(
 Using our model above we can analyze this in the following way:
 =#
 
-cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, 20:50)
+analysis_window = 150+1:150+48
 
-plot_flexibility(20:50, cost_pos, pot_pos, cost_neg, pot_neg)
+cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, analysis_window)
 
-##
+plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
+
+#-
 
 #=
 Under the hood this uses the evaluate_decision function of stochastic programs that evaluates the cost of a specified scenario given a decision.
@@ -143,19 +161,20 @@ n = 100
 F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
 t_max = length(pv) - es.parameters[2].defaults[:recovery_time]
 
-scens = simple_flex_sampler(n, F_max, t_max)
+scens = simple_flex_sampler(n, F_max, t_max);
 
-##
+#-
 
 #=
 We can now evaluate the expected cost of running the system determined above with this flexibility distribution.
 =#
 
 sp_flex = instantiate(es, scens, optimizer = Clp.Optimizer)
+set_silent(sp_flex)
 
 evaluate_decision(sp_flex, no_flex_decision)
 
-##
+#-
 #=
 This is infinite as the system as built above can not actually provide the desired flexibility at all times.
 One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.
@@ -164,16 +183,16 @@ One way to deal with this problem is to regularize the problem, by allowing a he
 es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = false)
 
 sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
+set_silent(sp_reg_flex)
 
-
-##
+#-
 #=
 Now we can evaluate the expected cost of flexibility in the system: 
 =#
 
-evaluate_decision(sp_reg_flex, no_flex_decision)
+evaluate_decision(sp_reg_flex, no_flex_decision, scens[1])
 
-##
+#-
 
 #=
 This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost.
@@ -188,23 +207,21 @@ optimize!(sp_flex)
 optimize!(sp_reg_flex)
 
 flex_no_invest_decision = optimal_decision(sp_flex)
-reg_flex_no_invest_decision = optimal_decision(sp_reg_flex)
+reg_flex_no_invest_decision = optimal_decision(sp_reg_flex);
 
-##
+#-
 #=
 Then evaluating the decision we find much more reasonable values:
 =#
 
 evaluate_decision(sp_reg_flex, flex_no_invest_decision)
+#-
 
-##
 evaluate_decision(sp_reg_flex, reg_flex_no_invest_decision)
-
-##
+#-
 
 relative_flex_cost = evaluate_decision(sp_reg_flex, flex_no_invest_decision) / objective_value(sp_no_flex) - 1.
-
-##
+#-
 
 #=
 It is interesting to note that this way servicing the flexibility is actually not very expensive
@@ -214,11 +231,11 @@ We can also again evaluate the amount of flexibility available at each point in 
 =#
 
 # To find flexibility potentials we right now have to use the unregularized model:
-cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, 20:50)
+cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, analysis_window)
 
-plot_flexibility(20:50, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
+plot_flexibility(analysis_window, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
 
-##
+#-
 #=
 This shows that the model is not actually able to guarantee that there is flexibility at all times. However, it dramatically increases the amount of available flexibility:
 =#
@@ -228,10 +245,9 @@ flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware"
 flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware");
 flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware");
 flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware");
-display(plt_av)
+plt_av
 
-##
-
+#-
 #=
 We can of course also optimize the overall system investment to take flexibility into account.
 =#
@@ -243,22 +259,20 @@ optimize!(sp_flex)
 optimize!(sp_reg_flex)
 
 flex_invest_decision = optimal_decision(sp_flex)
-reg_flex_invest_decision = optimal_decision(sp_reg_flex)
+reg_flex_invest_decision = optimal_decision(sp_reg_flex);
 
 #=
 Then the relative cost of the system exposed to flexibility is further reduced:
 =#
 
 evaluate_decision(sp_reg_flex, flex_invest_decision)
+#-
 
-##
 evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
-
-##
+#-
 
 relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
-
-##
+#-
 
 #=
 Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:
@@ -266,4 +280,35 @@ Considering the flexiblity demands at investment time, rather than only during o
 
 relative_flex_cost_inv / relative_flex_cost - 1.
 
+#=
+27% for this toy model.
 
+# Further thoughts
+
+There are numerous directions to go from here.
+
+This document focused on (a regularized version of) the expected price of flexibility.
+Another possibility would be to make a minimum amount of available flexibility a constraint.
+There are algorithms taht concern stochastic constraints that might be useful to explore then.
+
+A general question with all of this is: We are sampling the space of possible events.
+The operational schedule we obtain will probably contain moments at which there is no flexibility.
+The sample might miss the few hours at which flexibility is hardest to come by.
+
+It is unclear (and requires further analysis) how much of a problem that is. E.g. maybe the flex aware schedule
+based on a sample will not have flexibility at some hours, but a very minor adjustment would.
+In partiuclar I consider it plausible that the investment decisions are not strongly affected by these gaps,
+as long as sufficiently many representative scenarios are sampled.
+
+In evaluating the quality of the sampling approach it might also be appropriate to evaluate the assumption of
+a schedule based on perfect foresight for everything _but_ the felxiblity. A proper validation set up would also
+consider the weather and demand uncertainties.
+
+A general choice we have is whether to think of the flexibility as for the system itself, or for selling as an auxilliary service.
+In the former case we can think of the regularizer as buying flexibility on the open market once providing it ourselfs becomes to expensive.
+For the latter we would need to think about potential products that can reasonably be offered/modelled in the stochastic program.
+E.g. we can not simply say we are offering the full flexibility potential as that is a quantity that is hard to evaluate.
+
+Given multiple energy systems that trade with each other we could try to analyze a market of such systems as well
+
+=#

@@ -121,7 +121,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_in[t] - sto_out[t] - heatpumpflow[t] == 0)
             # Heat balance
             @constraint(model, [t in 1:number_of_hours], -heatdemand[t] - heat_sto_in[t] + heat_sto_out[t] + COP*heatpumpflow[t] - heat_losses*heat_sto_soc[t] == 0)
-            # Investment costs
+            # Investment costs ...
+            # ... and background operational schedule
             @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
             + u_heat_storage * c_heat_storage + u_heatpump * c_heatpump) / lifetime_factor
             + c_i * sum(gci) - c_o * sum(gco) +
@@ -193,7 +194,11 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Heat balance
             @constraint(model, [t in 1:recovery_time], -heatdemand[t] - heat_sto_in2[t] + heat_sto_out2[t] + COP*heatpumpflow2[t] - heat_losses*heat_sto_soc2[t] == 0)
 
-            @objective(model, Min,
+            # The objective function is the difference between the adjusted schedule and the final schedule
+            # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
+            # value with the expected number of events, e.g. one per week.
+            # I tried to implement this by scaling the objective function here, but that made the problem unbounded.
+            @objective(model, Min, 
             + c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
             + penalty * (gi1 + gi2) + penalty * (go1 + go2)
