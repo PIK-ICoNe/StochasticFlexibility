@@ -128,8 +128,8 @@ After the event we give the system a time $t_r$ to recover back to its original 
 ```math
 \begin{aligned}
 c(F,t^F) &= \min_{O^t} C'(\overline I_{nf}, O^t, F, t_f)  \\
-O^{s,t} &= \overline O^t_{nf} \forall t \leq t^F t > t^F + t_r \\
-O^{f,t} &= \overline O^t_{nf} \forall t < t^F t > t^F + t_r
+O^{s,t} &= \overline O^t_{nf} \forall \;\;\; t \leq t^F , \;\;\; t > t^F + t_r \\
+O^{f,t} &= \overline O^t_{nf} \forall  \;\;\;t < t^F , \;\;\; t > t^F + t_r
 \end{aligned}
 ```
 
@@ -190,7 +190,7 @@ set_silent(sp_reg_flex)
 Now we can evaluate the expected cost of flexibility in the system: 
 =#
 
-evaluate_decision(sp_reg_flex, no_flex_decision, scens[1])
+evaluate_decision(sp_reg_flex, no_flex_decision)
 
 #-
 
