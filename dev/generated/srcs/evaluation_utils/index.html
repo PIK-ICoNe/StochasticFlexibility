@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Evaluation · Stochastic Flexibility Optimization</title><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.044/juliamono.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Stochastic Flexibility Optimization</a></span></div><form class="docs-search" action="../../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../../">Flexibility analysis using Stochastic Programing</a></li><li><span class="tocitem">Manuscripts</span><ul><li><a class="tocitem" href="../../flexibility_by_stochastic_programing/">Main Story</a></li></ul></li><li><span class="tocitem">Sources</span><ul><li><a class="tocitem" href="../sp_model/">Model</a></li><li class="is-active"><a class="tocitem" href>Evaluation</a></li><li><a class="tocitem" href="../plot_utils/">Plotting</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Sources</a></li><li class="is-active"><a href>Evaluation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Evaluation</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/PIK-ICoNe/StochasticFlexibility/blob/master/docs/src/generated/srcs/evaluation_utils.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><pre><code class="language-julia hljs">using Plots
+
+&quot;&quot;&quot;
+Suppress output of evaluate_decision, and deal with solvers that error on infeasibility.
+&quot;&quot;&quot;
+function evaluate_decision_wrapper(p, decision, scenario)
+    cost = 0.
+    try redirect_stdout((() -&gt; cost = evaluate_decision(p, decision, scenario)), devnull)
+    catch e
+        cost = Inf
+    end
+    return cost
+end
+
+&quot;&quot;&quot;
+Find maximum available flexibility and its cost at all points in some time interval.
+&quot;&quot;&quot;
+function analyze_flexibility_potential(sp, timesteps; decision = optimal_decision(sp))
+    cost_no_flex = evaluate_decision_wrapper(sp, optimal_decision(sp), no_flex_pseudo_sampler()[1])
+    L = length(timesteps)
+    cost_pos_flex = zeros(L)
+    cost_neg_flex = zeros(L)
+    potential_pos_flex = zeros(L)
+    potential_neg_flex = zeros(L)
+    Threads.@threads for i in 1:length(timesteps)
+        t = timesteps[i]
+        potential_pos_flex[i], cost_pos_flex[i] = find_f_max(sp,t,1,decision,100.)
+        potential_neg_flex[i], cost_neg_flex[i] = find_f_max(sp,t,-1,decision,100.)
+    end
+    return cost_pos_flex .- cost_no_flex, potential_pos_flex, cost_neg_flex .- cost_no_flex, potential_neg_flex
+end
+
+function plot_flexibility(timesteps, cost_pos_flex, potential_pos_flex, cost_neg_flex, potential_neg_flex)
+    plt_cost = plot()
+    plt_pot = plot()
+    plot!(plt_cost, timesteps, cost_pos_flex ./ potential_pos_flex, label = &quot;price of positive flexibility&quot;)
+    plot!(plt_cost, timesteps, cost_neg_flex ./ abs.(potential_neg_flex), label = &quot;price of negative flexibility&quot;)
+    plot!(plt_pot, timesteps, potential_pos_flex, fillrange = 0, fillalpha = 0.35, label = &quot;positive flexibility potential&quot;)
+    plot!(plt_pot, timesteps, potential_neg_flex, fillrange = 0, fillalpha = 0.35, label = &quot;negative flexibility potential&quot;)
+    plot(plt_cost, plt_pot, layout = (2, 1))
+end
+
+&quot;&quot;&quot;
+Find distribution of maximum available flexibilities.
+&quot;&quot;&quot;
+function flexibility_availability!(plt, flex_potential; plot_options...)
+    p_sorted = sort(unique(flex_potential))
+    fraction = [sum(abs.(flex_potential[:]).&gt;=abs(f)) for f in p_sorted]./length(p_sorted)
+    plot!(plt, p_sorted, fraction)
+end
+
+&quot;&quot;&quot;
+Bisection search for maximum felxibility potential.
+Parameters:
+- sp - optimized stochastic program
+- t - time step
+- s - sign of flexibility scenario
+- tol - result tolerance
+- maxiters - maximum number of iterations
+&quot;&quot;&quot;
+function find_f_max(sp, t, s, od, tol; maxiter = 100)
+    a = 0.
+    b = 10000.
+    cost_a = 0.
+    cost_b = 0.
+    i = 0
+    scen = @scenario t_xi = t s_xi = s F_xi = a probability = 1.
+    cost_a = evaluate_decision_wrapper(sp,od,scen)
+    if cost_a == Inf
+        return 0., cost_a
+    else
+        while b-a&gt;tol &amp;&amp; i&lt;=maxiter
+            i+=1
+            scen = @scenario t_xi = t s_xi = s F_xi = b probability = 1.
+            cost_b = evaluate_decision_wrapper(sp,od,scen)
+            if cost_b == Inf
+                b = (a+b)/2
+            else
+                a = b
+                cost_a = cost_b
+                b *= 2
+            end
+        end
+        return s*a, cost_a
+    end
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sp_model/">« Model</a><a class="docs-footer-nextpage" href="../plot_utils/">Plotting »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Monday 30 May 2022 14:34">Monday 30 May 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
