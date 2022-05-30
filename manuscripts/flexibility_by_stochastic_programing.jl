@@ -128,8 +128,8 @@ After the event we give the system a time $t_r$ to recover back to its original 
 ```math
 \begin{aligned}
 c(F,t^F) &= \min_{O^t} C'(\overline I_{nf}, O^t, F, t_f)  \\
-O^{s,t} &= \overline O^t_{nf} \forall \;\;\; t \leq t^F , \;\;\; t > t^F + t_r \\
-O^{f,t} &= \overline O^t_{nf} \forall  \;\;\;t < t^F , \;\;\; t > t^F + t_r
+O^{s,t} &= \overline O^t_{nf} \;\; \forall \;\;\; t \leq t^F , \;\;\; t > t^F + t_r \\
+O^{f,t} &= \overline O^t_{nf} \;\; \forall  \;\;\; t < t^F , \;\;\; t > t^F + t_r
 \end{aligned}
 ```
 
@@ -195,6 +195,8 @@ evaluate_decision(sp_reg_flex, no_flex_decision)
 #-
 
 #=
+TODO / BUG: This is infinite for some time windows/seeds! This should not happen.
+
 This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost.
 To do so we fix the investment to the system we have and then optimize the remaining variables:
 =#
