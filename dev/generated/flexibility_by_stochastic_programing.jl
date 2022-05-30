@@ -79,7 +79,7 @@ es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_fle
 sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
 set_silent(sp_reg_flex)
 
-evaluate_decision(sp_reg_flex, no_flex_decision, scens[1])
+evaluate_decision(sp_reg_flex, no_flex_decision)
 
 investments_nf = get_investments(sp_no_flex)
 fix_investment!(sp_flex, investments_nf)
