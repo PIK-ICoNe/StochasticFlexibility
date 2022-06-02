@@ -11,7 +11,7 @@ using Clp
 using Statistics;
 
 using Random
-Random.seed!(1)
+Random.seed!(1);
 
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "plot_utils.jl"))
@@ -31,9 +31,10 @@ heatdemand = heatdemand_data[timesteps .+ offset, 1]
 data = nothing; # Free the memory
 heatdemand_data = nothing;
 
-plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV")
-plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind")
-plot!(plt, timesteps, demand, label="Demand")
+plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV (unitless)")
+plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind (unitless)")
+plot!(plt, timesteps, heatdemand, label="Heat Demand")
+plot!(plt, timesteps, demand, label="Electric Demand")
 plt
 
 pars = copy(default_es_pars)
@@ -41,13 +42,10 @@ pars = copy(default_es_pars)
 average_hourly_demand = mean(demand)
 
 pars[:recovery_time] = 24
-pars[:c_storage] = 100.
+pars[:c_storage] = 70.
 pars[:c_pv] = 300.
-pars[:c_wind] = 800.
-pars[:c_sto_op] = 0.00001
-
-#heatdemand = copy(demand)./300.
-#heatdemand0 = zeros(length(demand));
+pars[:c_wind] = 600.
+pars[:c_sto_op] = 0.00001;
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
