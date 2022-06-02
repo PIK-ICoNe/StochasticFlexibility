@@ -48,12 +48,15 @@ offset = 24*7*14
 timesteps = 1:(24*7*2)
 
 data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
+heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
 
 pv = data[timesteps .+ offset, 3]
 wind = data[timesteps .+ offset, 4]
 demand = data[timesteps .+ offset, 2]
+heatdemand = heatdemand_data[timesteps .+ offset, 1]
 
 data = nothing; # Free the memory
+heatdemand_data = nothing;
 
 plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV")
 plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind")
@@ -76,8 +79,8 @@ pars[:c_pv] = 300.
 pars[:c_wind] = 800.
 pars[:c_sto_op] = 0.00001
 
-heatdemand = copy(demand)./300.
-heatdemand0 = zeros(length(demand));
+#heatdemand = copy(demand)./300.
+#heatdemand0 = zeros(length(demand));
 
 #-
 
@@ -217,12 +220,15 @@ Then evaluating the decision we find much more reasonable values:
 =#
 
 evaluate_decision(sp_reg_flex, flex_no_invest_decision)
+
 #-
 
 evaluate_decision(sp_reg_flex, reg_flex_no_invest_decision)
+
 #-
 
 relative_flex_cost = evaluate_decision(sp_reg_flex, flex_no_invest_decision) / objective_value(sp_no_flex) - 1.
+
 #-
 
 #=
@@ -250,6 +256,7 @@ flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aw
 plt_av
 
 #-
+
 #=
 We can of course also optimize the overall system investment to take flexibility into account.
 =#
@@ -271,9 +278,11 @@ evaluate_decision(sp_reg_flex, flex_invest_decision)
 #-
 
 evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
+
 #-
 
 relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
+
 #-
 
 #=
@@ -314,3 +323,4 @@ E.g. we can not simply say we are offering the full flexibility potential as tha
 Given multiple energy systems that trade with each other we could try to analyze a market of such systems as well
 
 =#
+

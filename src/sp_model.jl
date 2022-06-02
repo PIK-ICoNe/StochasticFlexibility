@@ -116,6 +116,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
             @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
             @constraint(model, heat_sto_soc[number_of_hours] - heat_sto_out[number_of_hours] + heat_sto_in[number_of_hours] == heat_sto_soc[1])
+            @constraint(model, [t in 1:number_of_hours], heatpumpflow[t] <= u_heatpump)
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
             gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_in[t] - sto_out[t] - heatpumpflow[t] == 0)
@@ -168,6 +169,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] <= u_heat_storage)
             @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
             @constraint(model, heat_sto_soc2[recovery_time] - heat_sto_out2[recovery_time] + heat_sto_in2[recovery_time] == heat_sto_soc[t_xi+recovery_time])
+            @constraint(model, [t in 1:recovery_time], heatpumpflow2[t] <= u_heatpump)
 
             # Event energy balance
             # The storage and other fast acting components use the recourse variables here.
