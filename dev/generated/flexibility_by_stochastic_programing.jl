@@ -21,12 +21,15 @@ offset = 24*7*14
 timesteps = 1:(24*7*2)
 
 data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
+heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
 
 pv = data[timesteps .+ offset, 3]
 wind = data[timesteps .+ offset, 4]
 demand = data[timesteps .+ offset, 2]
+heatdemand = heatdemand_data[timesteps .+ offset, 1]
 
 data = nothing; # Free the memory
+heatdemand_data = nothing;
 
 plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV")
 plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind")
@@ -43,8 +46,8 @@ pars[:c_pv] = 300.
 pars[:c_wind] = 800.
 pars[:c_sto_op] = 0.00001
 
-heatdemand = copy(demand)./300.
-heatdemand0 = zeros(length(demand));
+#heatdemand = copy(demand)./300.
+#heatdemand0 = zeros(length(demand));
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
