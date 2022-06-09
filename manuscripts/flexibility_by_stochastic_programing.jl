@@ -77,7 +77,7 @@ average_hourly_demand = mean(demand)
 pars[:recovery_time] = 24
 pars[:c_storage] = 70.
 pars[:c_pv] = 300.
-pars[:c_wind] = 600.
+pars[:c_wind] = 450.
 pars[:c_sto_op] = 0.00001;
 
 #-
@@ -140,11 +140,26 @@ The marginal cost of flexibility is $cost_{\pm}(t) = c(pot_\pm(t), t) / pot_\pm(
 Using our model above we can analyze this in the following way:
 =#
 
-analysis_window = 150+1:150+48
+analysis_window = 190+1:190+48
 
 cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, analysis_window)
 
 plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
+
+#-
+
+plot_results(sp_no_flex, pv, wind, demand; plot_span = analysis_window, stage_2 = [] , hd = heatdemand)
+
+#-
+
+prob_scen = @scenario t_xi = 195 s_xi = 1. F_xi = 0. probability = 1.
+evaluate_decision(sp_no_flex, no_flex_decision, prob_scen)
+
+#-
+
+outcome = outcome_model(sp_no_flex, no_flex_decision, prob_scen; optimizer = subproblem_optimizer(sp_no_flex))
+optimize!(outcome)
+termination_status(outcome)
 
 #-
 
