@@ -68,6 +68,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     recovery_time = p[:recovery_time]
     COP = p[:COP]
     heat_losses = p[:heat_losses]
+    storage_losses = 0.05
     energy_system = @stochastic_model begin 
         @stage 1 begin
             @parameters begin
@@ -77,13 +78,14 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_pv = p[:c_pv]
                 c_wind = p[:c_wind]
                 c_storage = p[:c_storage]
-                c_sto_op = c_sto_op
+                c_sto_op = 0.#c_sto_op
                 c_i = c_i
                 c_o = c_o
                 c_heat_storage = p[:c_heat_storage]
                 c_heatpump = p[:c_heatpump]
                 COP = COP
                 heat_losses = heat_losses
+                storage_losses = storage_losses
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
             end
@@ -100,7 +102,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, sto_in[t in 1:number_of_hours] >= 0) # into the bus from storage
             @decision(model, sto_out[t in 1:number_of_hours] >= 0)
             @decision(model, sto_soc[t in 1:number_of_hours] >= 0)
-            @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] - sto_out[t] + sto_in[t])
+            @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] - sto_out[t] + (1. - storage_losses)*sto_in[t])
             @constraint(model, [t in 1:number_of_hours], sto_soc[t] <= u_storage)
             @constraint(model, sto_soc[1] == u_storage / 2)
             @constraint(model, sto_soc[number_of_hours] - sto_out[number_of_hours] + sto_in[number_of_hours] == sto_soc[1])
@@ -132,12 +134,13 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
         @stage 2 begin
             @parameters begin
                 recovery_time = recovery_time
-                c_sto_op = c_sto_op
+                c_sto_op = 0.#c_sto_op
                 c_i = c_i
                 c_o = c_o
                 penalty = p[:penalty]
                 heat_losses = heat_losses
                 COP = COP
+                storage_losses = storage_losses
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
             t_xi_final = t_xi + recovery_time - 1
@@ -156,7 +159,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, sto_in2[t in 1:recovery_time] >= 0) # into the bus from storage
             @recourse(model, sto_out2[t in 1:recovery_time] >= 0)
             @recourse(model, sto_soc2[t in 1:recovery_time] >= 0)
-            @constraint(model, [t in 1:recovery_time-1], sto_soc2[t+1] == sto_soc2[t] - sto_out2[t] + sto_in2[t])
+            @constraint(model, [t in 1:recovery_time-1], sto_soc2[t+1] == (1. - storage_losses)*sto_soc2[t] - sto_out2[t] + sto_in2[t])
             @constraint(model, [t in 1:recovery_time], sto_soc2[t] <= u_storage)
             @constraint(model, sto_soc2[1] == sto_soc[t_xi])
             @constraint(model, sto_soc2[recovery_time] - sto_out2[recovery_time] + sto_in2[recovery_time] == sto_soc[t_xi+recovery_time])
@@ -201,7 +204,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # value with the expected number of events, e.g. one per week.
             # I tried to implement this by scaling the objective function here, but that made the problem unbounded.
             @objective(model, Min, 
-            + c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
+              c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
             + penalty * (gi1 + gi2) + penalty * (go1 + go2)
             + c_sto_op * (sum(sto_in2) + sum(sto_out2) 
