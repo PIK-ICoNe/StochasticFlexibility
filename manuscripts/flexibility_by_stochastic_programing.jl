@@ -79,7 +79,7 @@ pars[:c_storage] = 70.
 pars[:c_pv] = 300.
 pars[:c_wind] = 450.
 pars[:c_sto_op] = 0.00001;
-
+pars[:heat_losses] =0.;
 #-
 
 #=
@@ -148,8 +148,8 @@ plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
 
 #-
 
-plot_results(sp_no_flex, pv, wind, demand; plot_span = analysis_window, stage_2 = [] , hd = heatdemand)
-
+plot_results(sp_no_flex, pv, wind, demand)
+plot_heat_layer(sp_no_flex, heatdemand)
 #-
 
 prob_scen = @scenario t_xi = 195 s_xi = 1. F_xi = 0. probability = 1.
