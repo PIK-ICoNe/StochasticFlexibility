@@ -79,7 +79,6 @@ pars[:c_storage] = 70.
 pars[:c_pv] = 300.
 pars[:c_wind] = 450.
 pars[:c_sto_op] = 0.00001;
-pars[:heat_losses] =0.;
 #-
 
 #=
@@ -262,10 +261,10 @@ This shows that the model is not actually able to guarantee that there is flexib
 =#
 
 plt_av = plot();
-flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware");
-flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware");
-flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware");
-flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware");
+flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware", c = :red);
+flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware", c = :green);
+flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware", c = :red);
+flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware", c = :green);
 plt_av
 
 #-
