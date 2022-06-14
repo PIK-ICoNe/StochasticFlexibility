@@ -163,7 +163,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 1:recovery_time-1], sto_soc2[t+1] == (1. - storage_losses)*sto_soc2[t] - sto_out2[t] + sto_in2[t])
             @constraint(model, [t in 1:recovery_time], sto_soc2[t] <= u_storage)
             @constraint(model, sto_soc2[1] == sto_soc[t_xi])
-            @constraint(model, sto_soc2[recovery_time] - sto_out2[recovery_time] + sto_in2[recovery_time] == sto_soc[t_xi_final])
+            @constraint(model, sto_soc2[recovery_time] - sto_out2[recovery_time] + sto_in2[recovery_time] == sto_soc[t_xi+recovery_time])
             # Heat model
             @recourse(model, heat_sto_in2[t in 1:recovery_time] >= 0) # from the heat storage
             @recourse(model, heat_sto_out2[t in 1:recovery_time] >= 0)
@@ -172,7 +172,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 1:recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] - heat_sto_out2[t] + heat_sto_in2[t])
             @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] <= u_heat_storage)
             @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
-            @constraint(model, heat_sto_soc2[recovery_time] - heat_sto_out2[recovery_time] + heat_sto_in2[recovery_time] == heat_sto_soc[t_xi_final])
+            @constraint(model, heat_sto_soc2[recovery_time] - heat_sto_out2[recovery_time] + heat_sto_in2[recovery_time] == heat_sto_soc[t_xi+recovery_time])
             @constraint(model, [t in 1:recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
 
             # Event energy balance
