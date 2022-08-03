@@ -175,8 +175,20 @@ We can start by taking a simple uniform distribution between some maximum flexib
 n = 100
 F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
 t_max = length(pv) - es.parameters[2].defaults[:recovery_time]
+t_day = []#Vector{Float64}() timesteps which are in the day in one vector
+t_night = [] #timesteps which are in the night in the other one
+prob_day = 2/3 #probality that the flexible demand comes at a day timestep in ratio to night timesteps  
+prob_night = 1 - prob_day 
 
-scens = simple_flex_sampler(n, F_max, t_max);
+for i in 1:t_max
+    if mod(i, 24) <20 && mod(i, 24) > 7 
+        push!(t_day, i)
+    else
+        push!(t_night, i)
+    end
+end
+
+scens = timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_night);
 
 #-
 

@@ -54,6 +54,18 @@ function no_flex_pseudo_sampler()
 end
 
 """
+Draw a sample of n scenarios which have different probaility at day and night 
+"""
+
+function timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_night)
+    sday = [@scenario t_xi = rand(t_day) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = prob_day/n 
+        for i in 1:(n/2)]
+    snight = [@scenario t_xi = rand(t_night) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = prob_night/n 
+        for i in 1:(n/2)]
+    return vcat(sday,snight)
+end
+
+"""
 Define energy system.
 Parameters:
 - pv, wind - weather timeseries
