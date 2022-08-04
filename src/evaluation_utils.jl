@@ -24,8 +24,8 @@ function analyze_flexibility_potential(sp, timesteps; decision = optimal_decisio
     potential_neg_flex = zeros(L)
     Threads.@threads for i in 1:length(timesteps)
         t = timesteps[i]
-        potential_pos_flex[i], cost_pos_flex[i] = find_f_max(sp,t,1,decision,100.)
-        potential_neg_flex[i], cost_neg_flex[i] = find_f_max(sp,t,-1,decision,100.)
+        potential_pos_flex[i], cost_pos_flex[i] = find_f_max(sp,t,1,decision)
+        potential_neg_flex[i], cost_neg_flex[i] = find_f_max(sp,t,-1,decision)
     end
     return cost_pos_flex .- cost_no_flex, potential_pos_flex, cost_neg_flex .- cost_no_flex, potential_neg_flex
 end
@@ -58,7 +58,7 @@ Parameters:
 - tol - result tolerance
 - maxiters - maximum number of iterations
 """
-function find_f_max(sp, t, s, od, tol; maxiter = 100)
+function find_f_max(sp, t, s, od; tol = 10., maxiter = 100)
     a = 0.
     b = 10000.
     cost_a = 0.
