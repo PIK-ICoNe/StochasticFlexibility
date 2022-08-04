@@ -81,7 +81,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     recovery_time = p[:recovery_time]
     COP = p[:COP]
     heat_losses = p[:heat_losses]
-    storage_losses = 0.#p[:storage_losses]
+    storage_losses = p[:storage_losses]
     energy_system = @stochastic_model begin 
         @stage 1 begin
             @parameters begin
@@ -115,7 +115,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, sto_in[t in 1:number_of_hours] >= 0) # into the bus from storage
             @decision(model, sto_out[t in 1:number_of_hours] >= 0)
             @decision(model, sto_soc[t in 1:number_of_hours] >= 0)
-            @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] - sto_out[t] + (1. - storage_losses)*sto_in[t])
+            @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == (1. - storage_losses)*sto_soc[t] - sto_out[t] + sto_in[t])
             @constraint(model, [t in 1:number_of_hours], sto_soc[t] <= u_storage)
             @constraint(model, sto_soc[1] == u_storage / 2)
             @constraint(model, sto_soc[number_of_hours] - sto_out[number_of_hours] + sto_in[number_of_hours] == sto_soc[1])
@@ -141,8 +141,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # ... and background operational schedule
             @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
             + u_heat_storage * c_heat_storage + u_heatpump * c_heatpump) / lifetime_factor
-            + c_i * sum(gci) - c_o * sum(gco) +
-            c_sto_op * sum(sto_in) + c_sto_op * sum(sto_out))
+            + c_i * sum(gci) - c_o * sum(gco))
+            #c_sto_op * sum(sto_in) + c_sto_op * sum(sto_out))
         end
         @stage 2 begin
             @parameters begin
@@ -219,9 +219,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @objective(model, Min, 
               c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
-            + penalty * (gi1 + gi2) + penalty * (go1 + go2)
-            + c_sto_op * (sum(sto_in2) + sum(sto_out2) 
-            - sum(sto_in[t_xi:t_xi_final]) - sum(sto_out[t_xi:t_xi_final])))
+            + penalty * (gi1 + gi2) + penalty * (go1 + go2))
+            # + c_sto_op * (sum(sto_in2) + sum(sto_out2) 
+            #- sum(sto_in[t_xi:t_xi_final]) - sum(sto_out[t_xi:t_xi_final])))
         end
     end
     energy_system

@@ -75,7 +75,7 @@ pars = copy(default_es_pars)
 average_hourly_demand = mean(demand)
 
 pars[:recovery_time] = 24
-pars[:c_storage] = 70.
+pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 450.
 pars[:c_sto_op] = 0.00001;
@@ -148,6 +148,7 @@ plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
 #-
 
 plot_results(sp_no_flex, pv, wind, demand)
+#-
 plot_heat_layer(sp_no_flex, heatdemand)
 #-
 
