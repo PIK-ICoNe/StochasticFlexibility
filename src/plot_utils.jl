@@ -43,7 +43,7 @@ function plot_heat_layer(sp, heatdemand; plot_span = 1:length(heatdemand), s = 1
     plot!(plt_heat, plot_span, heatdemand[plot_span], label = "heat demand")
     plot!(plt_heat, plot_span, COP*value.(sp[1, :flow_energy2heat])[plot_span], label = "heatpump")
     plot!(plt_heat, plot_span, value.(sp[1, :heat_sto_soc])[plot_span], label = "heat storage SOC")
-    plot!(plt_heat, plot_span, value.(sp[1, :heat_sto_in])[plot_span]-value.(sp[1, :heat_sto_out])[plot_span], label = "heat storage use")
+    plot!(plt_heat, plot_span, value.(sp[1, :heat_sto_to_bus])[plot_span]-value.(sp[1, :heat_sto_from_bus])[plot_span], label = "heat storage use")
     # plot!(plt_heat, (t_xi+1):(t_xi+recovery_time), COP*value.(sp[2, :flow_energy2heat2], s), label = "heatpump$s", linestyle=:dash, linewidth=2)
     # plot!(plt_heat, (t_xi+1):(t_xi+recovery_time), value.(sp[2, :heat_sto_in2], s)-value.(sp[2, :heat_sto_out2], s), label = "heat storage use $s", linestyle=:dash, linewidth=2)
 
