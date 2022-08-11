@@ -25,8 +25,8 @@ function analyze_flexibility_potential(sp, timesteps; decision = optimal_decisio
     potential_neg_flex = zeros(L)
     Threads.@threads for i in 1:length(timesteps)
         t = timesteps[i]
-        potential_pos_flex[i], cost_pos_flex[i] = find_f_max(sp,t,1,decision,100.)
-        potential_neg_flex[i], cost_neg_flex[i] = find_f_max(sp,t,-1,decision,100.)
+        potential_pos_flex[i], cost_pos_flex[i] = find_f_max(sp,t,1,decision)
+        potential_neg_flex[i], cost_neg_flex[i] = find_f_max(sp,t,-1,decision)
     end
     return cost_pos_flex .- cost_no_flex, potential_pos_flex, cost_neg_flex .- cost_no_flex, potential_neg_flex
 end
@@ -59,7 +59,7 @@ Parameters:
 - tol - result tolerance
 - maxiters - maximum number of iterations
 &quot;&quot;&quot;
-function find_f_max(sp, t, s, od, tol; maxiter = 100)
+function find_f_max(sp, t, s, od; tol = 10., maxiter = 100)
     a = 0.
     b = 10000.
     cost_a = 0.
@@ -84,4 +84,4 @@ function find_f_max(sp, t, s, od, tol; maxiter = 100)
         end
         return s*a, cost_a
     end
-end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sp_model/">« Model</a><a class="docs-footer-nextpage" href="../plot_utils/">Plotting »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Thursday 2 June 2022 12:15">Thursday 2 June 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sp_model/">« Model</a><a class="docs-footer-nextpage" href="../plot_utils/">Plotting »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Thursday 11 August 2022 16:57">Thursday 11 August 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

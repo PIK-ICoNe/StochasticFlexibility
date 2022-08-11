@@ -42,9 +42,9 @@ pars = copy(default_es_pars)
 average_hourly_demand = mean(demand)
 
 pars[:recovery_time] = 24
-pars[:c_storage] = 70.
+pars[:c_storage] = 100.
 pars[:c_pv] = 300.
-pars[:c_wind] = 600.
+pars[:c_wind] = 450.
 pars[:c_sto_op] = 0.00001;
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
@@ -58,11 +58,22 @@ no_flex_decision = optimal_decision(sp_no_flex)
 
 objective_value(sp_no_flex)
 
-analysis_window = 150+1:150+48
+analysis_window = 190+1:190+48
 
 cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, analysis_window)
 
 plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
+
+plot_results(sp_no_flex, pv, wind, demand)
+
+plot_heat_layer(sp_no_flex, heatdemand)
+
+prob_scen = @scenario t_xi = 195 s_xi = 1. F_xi = 0. probability = 1.
+evaluate_decision(sp_no_flex, no_flex_decision, prob_scen)
+
+outcome = outcome_model(sp_no_flex, no_flex_decision, prob_scen; optimizer = subproblem_optimizer(sp_no_flex))
+optimize!(outcome)
+termination_status(outcome)
 
 n = 100
 F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
@@ -103,10 +114,10 @@ cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_p
 plot_flexibility(analysis_window, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
 
 plt_av = plot();
-flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware");
-flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware");
-flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware");
-flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware");
+flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware", c = :red);
+flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware", c = :green);
+flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware", c = :red);
+flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware", c = :green);
 plt_av
 
 unfix_investment!(sp_flex, investments_nf)
