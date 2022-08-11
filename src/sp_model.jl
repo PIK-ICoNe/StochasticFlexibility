@@ -202,7 +202,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 2:recovery_time],
             gci2[t] - gco2[t]
             + u_pv * pv[t + t_xi - 1] + u_wind * wind[t + t_xi - 1]
-            - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] - sto_soc2[t] == 0)
+            - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] - storage_losses * sto_soc2[t] == 0)
             # Heat balance
             @constraint(model, [t in 1:recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
 

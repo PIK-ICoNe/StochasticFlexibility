@@ -68,3 +68,36 @@ function plot_recovery_window_deviation(sp; s = 1)
 
     plot(plt_gc, plt_sto, layout = (2, 1))
 end
+
+function plot_outcome(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_end=2)
+    scen = @scenario t_xi = t_xi s_xi = s_xi F_xi = F_xi probability = 1.
+    sp = outcome_model(sp_base, optimal_decision(sp_base), scen; optimizer = subproblem_optimizer(sp_base))
+    optimize!(sp)
+    if termination_status(sp) != JuMP.MathOptInterface.OPTIMAL
+        println("No optimum")
+        return termination_status(sp)
+    end
+
+    recovery_window = t_xi:t_xi+length(sp[:gco2])-1
+    plot_window = t_xi+1+window_start:t_xi+length(sp[:gco2])+window_end
+
+    # Some of these should probably be shifted by ±1
+
+    plt_gb = plot(title="grid buy", legend=:outertopright)
+    plot!(plt_gb, plot_window, value.(sp[:gci][plot_window]) .- value.(sp[:gco][plot_window]), label = "Base Case")
+    plot!(plt_gb, recovery_window, value.(sp[:gci2]) .- value.(sp[:gco2]), label = "Event")
+
+    plt_soc = plot(title="soc", legend=:outertopright)
+    plot!(plt_soc, plot_window, value.(sp[:sto_soc][plot_window]), label = "Base Case")
+    plot!(plt_soc, recovery_window, value.(sp[:sto_soc2]), label = "Event")
+
+    plt_h_soc = plot(title="heat soc", legend=:outertopright)
+    plot!(plt_h_soc, plot_window, value.(sp[:heat_sto_soc][plot_window]), label = "Base Case")
+    plot!(plt_h_soc, recovery_window, value.(sp[:heat_sto_soc2]), label = "Event")
+
+    plt_e2h = plot(title="e2h", legend=:outertopright)
+    plot!(plt_e2h, plot_window, value.(sp[:flow_energy2heat][plot_window]), label = "Base Case")
+    plot!(plt_e2h, recovery_window, value.(sp[:flow_energy2heat2]), label = "Event")
+
+    plot(plt_gb, plt_h_soc, plt_soc, plt_e2h, layout=(4,1))
+end
