@@ -6,7 +6,6 @@ using Random
 Default values of system parameters.
 - c_i - price of buying energy from the grid, Euro/kW
 - c_o - price of selling energy to the grid, Euro/kW
-- c_sto_op - price of operating storage. Could be replaced with storage losses. TODO
 - asset_lifetime - expected lifetime of a component in years. Needed to bring investment and operational costs to the same timescale
 - c_pv, c_wind - price of installing pv and wind components per kW peak, Euro/kWp
 - c_storage - price of storage, Euro/kW
@@ -21,7 +20,6 @@ Default values of system parameters.
 default_es_pars = Dict((
     :c_i => .3,
     :c_o => .05,
-    :c_sto_op => 0.0001,
     :asset_lifetime => 10.,
     :c_pv => 700.,
     :c_wind => 2000.,
@@ -75,7 +73,6 @@ Parameters:
 """
 function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
-    c_sto_op = 0. #p[:c_sto_op]
     c_i = p[:c_i]
     c_o = p[:c_o]
     recovery_time = p[:recovery_time]
@@ -91,7 +88,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_pv = p[:c_pv]
                 c_wind = p[:c_wind]
                 c_storage = p[:c_storage]
-                c_sto_op = c_sto_op
                 c_i = c_i
                 c_o = c_o
                 c_heat_storage = p[:c_heat_storage]
@@ -141,13 +137,11 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # ... and background operational schedule
             @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
             + u_heat_storage * c_heat_storage + u_heatpump * c_heatpump) / lifetime_factor
-            + c_i * sum(gci) - c_o * sum(gco) +
-            c_sto_op * sum(sto_to_bus) + c_sto_op * sum(sto_from_bus))
+            + c_i * sum(gci) - c_o * sum(gco))
         end
         @stage 2 begin
             @parameters begin
                 recovery_time = recovery_time
-                c_sto_op = 0.#c_sto_op
                 c_i = c_i
                 c_o = c_o
                 penalty = p[:penalty]
@@ -210,7 +204,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             + u_pv * pv[t + t_xi - 1] + u_wind * wind[t + t_xi - 1]
             - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] - sto_soc2[t] == 0)
             # Heat balance
-            @constraint(model, [t in 1:recovery_time], -heatdemand[t] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
+            @constraint(model, [t in 1:recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
 
             # The objective function is the difference between the adjusted schedule and the final schedule
             # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
@@ -219,9 +213,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @objective(model, Min, 
               c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
-            + penalty * (gi1 + gi2) + penalty * (go1 + go2)
-            + c_sto_op * (sum(sto_to_bus2) + sum(sto_from_bus2) 
-            - sum(sto_to_bus[t_xi:t_xi_final]) - sum(sto_from_bus[t_xi:t_xi_final])))
+            + penalty * (gi1 + gi2) + penalty * (go1 + go2))
         end
     end
     energy_system
