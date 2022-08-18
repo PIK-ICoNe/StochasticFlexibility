@@ -1,4 +1,5 @@
 using Plots
+using SankeyPlots
 
 function plot_results(sp, pv, w, el_d; plot_span = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[], inv_dict = 0)
     if inv_dict != 0
@@ -100,4 +101,19 @@ function plot_outcome(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_end=2)
     plot!(plt_e2h, recovery_window, value.(sp[:flow_energy2heat2]), label = "Event")
 
     plot(plt_gb, plt_h_soc, plt_soc, plt_e2h, layout=(4,1))
+end
+
+function sankey_results(sp, pv, w, el_d)
+    total_pv = value.(sp[1, :u_pv])*sum(pv)
+    total_wind = value.(sp[1, :u_wind])*sum(w)
+    total_demand = sum(el_d)
+    st_in = sum(value.(sp[1,:sto_to_bus]))
+    st_out = sum(value.(sp[1,:sto_from_bus]))
+    grid_in = sum(value.(sp[1,:gci]))
+    grid_out = sum(value.(sp[1,:gco]))
+    labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus"]
+    src = [1,2,4,6,8,8,8]
+    trg = [8,8,8,8,3,5,7]
+    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out]
+    sankey(src, trg, weights, node_labels = labels)
 end
