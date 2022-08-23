@@ -103,18 +103,22 @@ function plot_outcome(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_end=2)
     plot(plt_gb, plt_h_soc, plt_soc, plt_e2h, layout=(4,1))
 end
 
-function sankey_results(sp, pv, w, el_d)
-    total_pv = value.(sp[1, :u_pv])*sum(pv)
-    total_wind = value.(sp[1, :u_wind])*sum(w)
-    total_demand = sum(el_d)
-    st_in = sum(value.(sp[1,:sto_to_bus]))
-    st_out = sum(value.(sp[1,:sto_from_bus]))
-    grid_in = sum(value.(sp[1,:gci]))
-    grid_out = sum(value.(sp[1,:gco]))
-    storage_losses = sp.stages[1].parameters[:storage_losses].*sum(value.(sp[1,:sto_soc]))
+function sankey_results(sp, pv, w, el_d, timesteps)
+    total_pv = value.(sp[1, :u_pv])*sum(pv[timesteps])
+    total_wind = value.(sp[1, :u_wind])*sum(w[timesteps])
+    total_demand = sum(el_d[timesteps])
+    st_in = sum(value.(sp[1,:sto_to_bus])[timesteps])
+    st_out = sum(value.(sp[1,:sto_from_bus])[timesteps])
+    grid_in = sum(value.(sp[1,:gci])[timesteps])
+    grid_out = sum(value.(sp[1,:gco])[timesteps])
+    storage_losses = sp.stages[1].parameters[:storage_losses].*sum(value.(sp[1,:sto_soc])[timesteps])
     labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus", "Losses"]
     src = [1,2,4,6,8,8,8,8]
     trg = [8,8,8,8,3,5,7,9]
     weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses]
+    total_in = total_pv+total_wind+st_in+grid_in
+    total_out = total_demand+st_out+grid_out
+    print(total_in-total_out)
     sankey(src, trg, weights, node_labels = labels)
+
 end
