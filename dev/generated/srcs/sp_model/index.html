@@ -32,7 +32,8 @@ default_es_pars = Dict((
     :COP =&gt; 3.5,
     :heat_losses =&gt; 0.2,
     :storage_losses =&gt; 0.05,
-    :penalty =&gt; 10000.
+    :penalty =&gt; 10000.,
+    :feedincap =&gt; 1000000.
 ))
 
 &quot;&quot;&quot;
@@ -64,6 +65,12 @@ function timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_nig
     return vcat(sday,snight)
 end
 
+
+function gap_sampler(indices)
+    [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.
+     for i in indices]
+end
+
 &quot;&quot;&quot;
 Define energy system.
 Parameters:
@@ -91,13 +98,15 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_heatpump = p[:c_heatpump]
                 COP = COP
                 heat_losses = heat_losses
-                storage_losses = storage_losses</code></pre><p>Euro</p><pre><code class="language-julia hljs">                inv_budget = p[:inv_budget] # Make the problem bounded
+                storage_losses = storage_losses
+                feedincap = p[:feedincap]</code></pre><p>Euro</p><pre><code class="language-julia hljs">                inv_budget = p[:inv_budget] # Make the problem bounded
             end
             lifetime_factor = asset_lifetime * 365 * 24 / number_of_hours</code></pre><p>Component units to be invested in, kWp</p><pre><code class="language-julia hljs">            @decision(model, u_pv &gt;= 0)
             @decision(model, u_wind &gt;= 0)
             @decision(model, u_storage &gt;= 0)
             @constraint(model, c_pv * u_pv + c_wind * u_wind + c_storage * u_storage &lt;= inv_budget)</code></pre><p>Grid connection</p><pre><code class="language-julia hljs">            @decision(model, gci[t in 1:number_of_hours] &gt;= 0)
-            @decision(model, gco[t in 1:number_of_hours] &gt;= 0)</code></pre><p>Storage model</p><pre><code class="language-julia hljs">            @decision(model, sto_to_bus[t in 1:number_of_hours] &gt;= 0) # into the bus from storage
+            @decision(model, gco[t in 1:number_of_hours] &gt;= 0)
+            @constraint(model, sum(gco) &lt;= feedincap)</code></pre><p>Storage model</p><pre><code class="language-julia hljs">            @decision(model, sto_to_bus[t in 1:number_of_hours] &gt;= 0) # into the bus from storage
             @decision(model, sto_from_bus[t in 1:number_of_hours] &gt;= 0)
             @decision(model, sto_soc[t in 1:number_of_hours] &gt;= 0)
             @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] + sto_from_bus[t] - sto_to_bus[t])
@@ -201,4 +210,4 @@ function unfix_investment!(sp, investments)
     for var_sym in keys(investments)
         unfix(decision_by_name(sp, 1, string(var_sym)))
     end
-end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../flexibility_by_stochastic_programing/">« Main Story</a><a class="docs-footer-nextpage" href="../evaluation_utils/">Evaluation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Thursday 11 August 2022 16:57">Thursday 11 August 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../flexibility_by_stochastic_programing/">« Main Story</a><a class="docs-footer-nextpage" href="../evaluation_utils/">Evaluation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Tuesday 23 August 2022 08:43">Tuesday 23 August 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
