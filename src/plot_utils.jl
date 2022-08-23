@@ -111,9 +111,10 @@ function sankey_results(sp, pv, w, el_d)
     st_out = sum(value.(sp[1,:sto_from_bus]))
     grid_in = sum(value.(sp[1,:gci]))
     grid_out = sum(value.(sp[1,:gco]))
-    labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus"]
-    src = [1,2,4,6,8,8,8]
-    trg = [8,8,8,8,3,5,7]
-    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out]
+    storage_losses = sp.stages[1].parameters[:storage_losses].*sum(value.(sp[1,:sto_soc]))
+    labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus", "Losses"]
+    src = [1,2,4,6,8,8,8,8]
+    trg = [8,8,8,8,3,5,7,9]
+    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses]
     sankey(src, trg, weights, node_labels = labels)
 end

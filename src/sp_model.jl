@@ -31,7 +31,8 @@ default_es_pars = Dict((
     :COP => 3.5,
     :heat_losses => 0.2,
     :storage_losses => 0.05,
-    :penalty => 10000.
+    :penalty => 10000.,
+    :feedincap => 1000000.
 ))
 
 """
@@ -61,6 +62,12 @@ function timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_nig
     snight = [@scenario t_xi = rand(t_night) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = prob_night/n 
         for i in 1:(n/2)]
     return vcat(sday,snight)
+end
+
+
+function gap_sampler(indices)
+    [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.
+     for i in indices]
 end
 
 """
@@ -95,6 +102,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 COP = COP
                 heat_losses = heat_losses
                 storage_losses = storage_losses
+                feedincap = p[:feedincap]
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
             end
@@ -107,6 +115,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Grid connection
             @decision(model, gci[t in 1:number_of_hours] >= 0)
             @decision(model, gco[t in 1:number_of_hours] >= 0)
+            @constraint(model, sum(gco) <= feedincap)
             # Storage model
             @decision(model, sto_to_bus[t in 1:number_of_hours] >= 0) # into the bus from storage
             @decision(model, sto_from_bus[t in 1:number_of_hours] >= 0)

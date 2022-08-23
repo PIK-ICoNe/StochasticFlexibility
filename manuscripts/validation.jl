@@ -8,6 +8,7 @@ Pkg.activate(basepath)
 
 using DataFrames
 using CSV
+using XLSX
 using Clp
 using Statistics;
 
@@ -74,7 +75,8 @@ pars[:c_pv] = 800.
 pars[:c_wind] = 1150.
 pars[:c_in] = 0.165
 pars[:c_out] = 0.02
-pars[:asset_lifetime] = 20.;
+pars[:asset_lifetime] = 20.
+pars[:investment_budget] = 10000000.;
 
 #=
 The model itself is constructed by the function define_energy_system
@@ -102,3 +104,10 @@ objective_value(sp_no_flex)
 
 #-
 sankey_results(sp_no_flex, pv, wind, demand)
+
+#-
+#=
+# Compare results with open_plan
+=#
+
+open_plan = XLSX.readxlsx("./timeseries/scenario646_timeseries_results.xlsx")
