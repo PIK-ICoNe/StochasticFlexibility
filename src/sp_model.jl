@@ -30,7 +30,7 @@ default_es_pars = Dict((
     :recovery_time => 72,
     :COP => 3.5,
     :heat_losses => 0.2,
-    :storage_losses => 0.05,
+    :storage_losses => 0.0005,
     :penalty => 10000.
 ))
 
@@ -210,10 +210,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
             # value with the expected number of events, e.g. one per week.
             # I tried to implement this by scaling the objective function here, but that made the problem unbounded.
-            @objective(model, Min, 
+            @objective(model, Min, 1 * (
               c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
-            + penalty * (gi1 + gi2) + penalty * (go1 + go2))
+            + penalty * (gi1 + gi2) + penalty * (go1 + go2)))
         end
     end
     energy_system
