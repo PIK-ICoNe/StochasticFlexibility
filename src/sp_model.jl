@@ -30,9 +30,12 @@ default_es_pars = Dict((
     :recovery_time => 72,
     :COP => 3.5,
     :heat_losses => 0.2,
-    :storage_losses => 0.05,
+    :sto_ef_ch => 0.95,
+    :sto_ef_dis => 0.95,
+    :storage_losses => 0.03,
     :penalty => 10000.,
-    :feedincap => 1000000.
+    :feedincap => 1000000.,
+    :scens_in_year => 1.
 ))
 
 """
@@ -131,17 +134,24 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, heat_sto_from_bus[t in 1:number_of_hours] >= 0)
             @decision(model, heat_sto_soc[t in 1:number_of_hours] >= 0)
             @decision(model, flow_energy2heat[t in 1:number_of_hours] >= 0)
-
-            @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] - heat_sto_to_bus[t])
-            @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
-            @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
-            @constraint(model, heat_sto_soc[number_of_hours] + heat_sto_from_bus[number_of_hours] - heat_sto_to_bus[number_of_hours] == heat_sto_soc[1])
-            @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] <= 1/COP*u_heatpump)
+            if maximum(heatdemand) > 0.
+                #@constraint(model, [t in 1:number_of_hours], flow_energy2heat .<= maximum(heatdemand))
+                @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] - heat_sto_to_bus[t])
+                @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
+                @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
+                @constraint(model, heat_sto_soc[number_of_hours] + heat_sto_from_bus[number_of_hours] - heat_sto_to_bus[number_of_hours] == heat_sto_soc[1])
+                @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] <= 1/COP*u_heatpump)
+                # Heat balance
+                @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)
+            else
+                @constraint(model, u_heat_storage == 0.)
+                @constraint(model, u_heatpump == 0.)
+                @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] == 0.)
+            end
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
             gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - flow_energy2heat[t] - storage_losses*sto_soc[t] == 0)
-            # Heat balance
-            @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)
+
             # Investment costs ...
             # ... and background operational schedule
             @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
@@ -184,12 +194,18 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, heat_sto_from_bus2[t in 1:recovery_time] >= 0)
             @recourse(model, heat_sto_soc2[t in 1:recovery_time] >= 0)
             @recourse(model, flow_energy2heat2[t in 1:recovery_time] >= 0)
-            @constraint(model, [t in 1:recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
-            @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] <= u_heat_storage)
-            @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
-            @constraint(model, heat_sto_soc2[recovery_time] + heat_sto_from_bus2[recovery_time] - heat_sto_to_bus2[recovery_time] == heat_sto_soc[t_xi+recovery_time])
-            @constraint(model, [t in 1:recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
-
+            if maximum(heatdemand) > 0.
+                @constraint(model, [t in 1:recovery_time], flow_energy2heat2 .<= maximum(heatdemand))
+                @constraint(model, [t in 1:recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
+                @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] <= u_heat_storage)
+                @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
+                @constraint(model, heat_sto_soc2[recovery_time] + heat_sto_from_bus2[recovery_time] - heat_sto_to_bus2[recovery_time] == heat_sto_soc[t_xi+recovery_time])
+                @constraint(model, [t in 1:recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
+                # Heat balance
+                @constraint(model, [t in 1:recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
+            else
+                @constraint(model, [t in 1:recovery_time], flow_energy2heat2[t] == 0.)
+            end
             # Event energy balance
             # The storage and other fast acting components use the recourse variables here.
             # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
@@ -212,9 +228,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             gci2[t] - gco2[t]
             + u_pv * pv[t + t_xi - 1] + u_wind * wind[t + t_xi - 1]
             - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] - storage_losses * sto_soc2[t] == 0)
-            # Heat balance
-            @constraint(model, [t in 1:recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
-
             # The objective function is the difference between the adjusted schedule and the final schedule
             # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
             # value with the expected number of events, e.g. one per week.
