@@ -20,3 +20,6 @@ docs/site/
 /docs/src/generated/
 
 .vscode
+
+# Validation timeseries
+timeseries/validation_usecase/

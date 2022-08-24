@@ -51,7 +51,6 @@ demand = demand_data[timesteps .+ offset, 1]
 pv_data = nothing;
 wind_data = nothing;
 demand_data = nothing; # Free the memory
-heatdemand_data = nothing;
 
 plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV (unitless)")
 plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind (unitless)")
@@ -76,7 +75,8 @@ pars[:c_wind] = 1150.
 pars[:c_in] = 0.165
 pars[:c_out] = 0.02
 pars[:asset_lifetime] = 20.
-pars[:investment_budget] = 10000000.;
+pars[:investment_budget] = 10000000.
+pars[:feedincap] = 1e7;
 
 #=
 The model itself is constructed by the function define_energy_system
@@ -103,7 +103,7 @@ no_flex_decision = optimal_decision(sp_no_flex)
 objective_value(sp_no_flex)
 
 #-
-sankey_results(sp_no_flex, pv, wind, demand)
+sankey_results(sp_no_flex, pv, wind, demand, timesteps)
 
 #-
 #=
@@ -111,3 +111,12 @@ sankey_results(sp_no_flex, pv, wind, demand)
 =#
 
 open_plan = XLSX.readxlsx("./timeseries/scenario646_timeseries_results.xlsx")
+
+ts = 3
+tf = 2 + length(timesteps)
+pv_op = value.(open_plan["energy_production!B$ts:B$tf"])
+wind_op = value.(open_plan["energy_production!C$ts:C$tf"])
+grid_in_op = value.(open_plan["energy_production!D$ts:D$tf"])
+demand_op = value.(open_plan["energy_consumption!B$ts:B$tf"])
+grid_out_op = value.(open_plan["energy_consumption!C$ts:C$tf"]);
+#-

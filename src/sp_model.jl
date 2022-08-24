@@ -90,6 +90,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     COP = p[:COP]
     heat_losses = p[:heat_losses]
     storage_losses = p[:storage_losses]
+    sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
+    sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
     energy_system = @stochastic_model begin 
         @stage 1 begin
             @parameters begin
@@ -106,6 +108,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 COP = COP
                 heat_losses = heat_losses
                 storage_losses = storage_losses
+                sto_ef_ch = sto_ef_ch
+                sto_ef_dis = sto_ef_dis
                 feedincap = p[:feedincap]
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
@@ -150,7 +154,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             end
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
-            gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - flow_energy2heat[t] - storage_losses*sto_soc[t] == 0)
+            gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_to_bus[t]*sto_ef_dis - sto_from_bus[t]/sto_ef_ch - flow_energy2heat[t] == 0)
 
             # Investment costs ...
             # ... and background operational schedule
@@ -167,6 +171,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 heat_losses = heat_losses
                 COP = COP
                 storage_losses = storage_losses
+                sto_ef_ch = sto_ef_ch
+                sto_ef_dis = sto_ef_dis
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
             t_xi_final = t_xi + recovery_time - 1
@@ -209,7 +215,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # The storage and other fast acting components use the recourse variables here.
             # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
             @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] + u_wind * wind[t_xi]
-             - demand[t_xi] + sto_to_bus2[1] - sto_from_bus2[1] - storage_losses*sto_soc2[1]
+             - demand[t_xi] + sto_to_bus2[1]*sto_ef_dis - sto_from_bus2[1]/sto_ef_ch
              - flow_energy2heat2[1] - F_xi * s_xi == 0) # TODO CHeck that our sign convention on positive and negative flexibility agrees with literature
             if strict_flex
                 @constraint(model, gci2[1] == gci[t_xi])
@@ -226,7 +232,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 2:recovery_time],
             gci2[t] - gco2[t]
             + u_pv * pv[t + t_xi - 1] + u_wind * wind[t + t_xi - 1]
-            - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] - storage_losses * sto_soc2[t] == 0)
+            - demand[t + t_xi - 1] + sto_to_bus2[t]*sto_ef_dis - sto_from_bus2[t]/sto_ef_ch - flow_energy2heat2[t] == 0)
             # The objective function is the difference between the adjusted schedule and the final schedule
             # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
             # value with the expected number of events, e.g. one per week.

@@ -111,14 +111,15 @@ function sankey_results(sp, pv, w, el_d, timesteps)
     st_out = sum(value.(sp[1,:sto_from_bus])[timesteps])
     grid_in = sum(value.(sp[1,:gci])[timesteps])
     grid_out = sum(value.(sp[1,:gco])[timesteps])
-    storage_losses = sp.stages[1].parameters[:storage_losses].*sum(value.(sp[1,:sto_soc])[timesteps])
+    losses_charge = 1/sp.stages[1].parameters[:sto_ef_ch] - 1.
+    losses_discharge = 1. - sp.stages[1].parameters[:sto_ef_dis]
+    storage_losses = losses_charge*sum(value.(sp[1,:sto_from_bus])[timesteps]) + losses_discharge*sum(value.(sp[1,:sto_to_bus])[timesteps])
     labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus", "Losses"]
     src = [1,2,4,6,8,8,8,8]
     trg = [8,8,8,8,3,5,7,9]
     weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses]
     total_in = total_pv+total_wind+st_in+grid_in
     total_out = total_demand+st_out+grid_out
-    print(total_in-total_out)
+    println("relative mismatch = $((total_in-total_out)/total_in)")
     sankey(src, trg, weights, node_labels = labels)
-
 end
