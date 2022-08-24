@@ -67,11 +67,12 @@ function timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_nig
     return vcat(sday,snight)
 end
 
-
+#=
 function gap_sampler(indices)
     [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.
      for i in indices]
 end
+=#
 
 """
 Define energy system.
@@ -135,7 +136,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, heat_sto_soc[t in 1:number_of_hours] >= 0)
             @decision(model, flow_energy2heat[t in 1:number_of_hours] >= 0)
             if maximum(heatdemand) > 0.
-                #@constraint(model, [t in 1:number_of_hours], flow_energy2heat .<= maximum(heatdemand))
                 @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] - heat_sto_to_bus[t])
                 @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
                 @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
@@ -195,7 +195,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, heat_sto_soc2[t in 1:recovery_time] >= 0)
             @recourse(model, flow_energy2heat2[t in 1:recovery_time] >= 0)
             if maximum(heatdemand) > 0.
-                @constraint(model, [t in 1:recovery_time], flow_energy2heat2 .<= maximum(heatdemand))
                 @constraint(model, [t in 1:recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
                 @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] <= u_heat_storage)
                 @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
