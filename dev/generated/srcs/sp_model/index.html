@@ -66,15 +66,7 @@ function timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_nig
     snight = [@scenario t_xi = rand(t_night) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = prob_night/n
         for i in 1:(n/2)]
     return vcat(sday,snight)
-end
-
-
-function gap_sampler(indices)
-    [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.
-     for i in indices]
-end
-
-&quot;&quot;&quot;
+end</code></pre><p>function gap<em>sampler(indices)     [@scenario t</em>xi = 1 s<em>xi = 1 F</em>xi = 0. probability = 1.      for i in indices] end</p><pre><code class="language-julia hljs">&quot;&quot;&quot;
 Define energy system.
 Parameters:
 - pv, wind - weather timeseries
@@ -122,7 +114,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, heat_sto_soc[t in 1:number_of_hours] &gt;= 0)
             @decision(model, flow_energy2heat[t in 1:number_of_hours] &gt;= 0)
             if maximum(heatdemand) &gt; 0.
-                #@constraint(model, [t in 1:number_of_hours], flow_energy2heat .&lt;= maximum(heatdemand))
                 @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] - heat_sto_to_bus[t])
                 @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] &lt;= u_heat_storage)
                 @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
@@ -167,7 +158,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, heat_sto_soc2[t in 1:recovery_time] &gt;= 0)
             @recourse(model, flow_energy2heat2[t in 1:recovery_time] &gt;= 0)
             if maximum(heatdemand) &gt; 0.
-                @constraint(model, [t in 1:recovery_time], flow_energy2heat2 .&lt;= maximum(heatdemand))
                 @constraint(model, [t in 1:recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
                 @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] &lt;= u_heat_storage)
                 @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
@@ -224,4 +214,4 @@ function unfix_investment!(sp, investments)
     for var_sym in keys(investments)
         unfix(decision_by_name(sp, 1, string(var_sym)))
     end
-end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../flexibility_by_stochastic_programing/">« Main Story</a><a class="docs-footer-nextpage" href="../evaluation_utils/">Evaluation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Wednesday 24 August 2022 14:59">Wednesday 24 August 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../flexibility_by_stochastic_programing/">« Main Story</a><a class="docs-footer-nextpage" href="../evaluation_utils/">Evaluation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Wednesday 24 August 2022 15:00">Wednesday 24 August 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
