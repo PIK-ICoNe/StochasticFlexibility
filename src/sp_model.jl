@@ -36,6 +36,7 @@ default_es_pars = Dict((
     :penalty => 10000.,
     :feedincap => 1000000.,
     :scens_in_year => 1.
+
 ))
 
 """
