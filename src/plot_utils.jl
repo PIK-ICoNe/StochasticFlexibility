@@ -121,5 +121,6 @@ function sankey_results(sp, pv, w, el_d, timesteps)
     total_in = total_pv+total_wind+st_in+grid_in
     total_out = total_demand+st_out+grid_out
     println("relative mismatch = $((total_in-total_out)/total_in)")
+    #println(storage_losses/(st_in+st_out))
     sankey(src, trg, weights, node_labels = labels)
 end
