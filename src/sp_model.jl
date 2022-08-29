@@ -93,6 +93,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     storage_losses = p[:storage_losses]
     sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
     sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
+    max_sto_flow = 0.2 # relative cap of charge/discharge in one hour
     energy_system = @stochastic_model begin 
         @stage 1 begin
             @parameters begin
@@ -129,6 +130,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, sto_to_bus[t in 1:number_of_hours] >= 0) # into the bus from storage
             @decision(model, sto_from_bus[t in 1:number_of_hours] >= 0)
             @decision(model, sto_soc[t in 1:number_of_hours] >= 0)
+            @constraint(model, [t in 1:number_of_hours], sto_from_bus[t] <= max_sto_flow*u_storage)
+            @constraint(model, [t in 1:number_of_hours], sto_to_bus[t] <= max_sto_flow*u_storage)
             @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] + sto_from_bus[t] - sto_to_bus[t])
             @constraint(model, [t in 1:number_of_hours], sto_soc[t] <= u_storage)
             @constraint(model, sto_soc[1] == u_storage / 2)
@@ -193,6 +196,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, sto_to_bus2[t in 1:recovery_time] >= 0) # into the bus from storage
             @recourse(model, sto_from_bus2[t in 1:recovery_time] >= 0)
             @recourse(model, sto_soc2[t in 1:recovery_time] >= 0)
+            @constraint(model, [t in 1:recovery_time], sto_from_bus2[t] <= max_sto_flow*u_storage)
+            @constraint(model, [t in 1:recovery_time], sto_to_bus2[t] <= max_sto_flow*u_storage)
             @constraint(model, [t in 1:recovery_time-1], sto_soc2[t+1] == sto_soc2[t] + sto_from_bus2[t] - sto_to_bus2[t])
             @constraint(model, [t in 1:recovery_time], sto_soc2[t] <= u_storage)
             @constraint(model, sto_soc2[1] == sto_soc[t_xi])
