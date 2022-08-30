@@ -19,9 +19,4 @@ docs/site/
 /docs/Manifest.toml
 /docs/src/generated/
 
-/timeseries/validation_usecase/ 
-
 .vscode
-
-# Validation timeseries
-timeseries/validation_usecase/
