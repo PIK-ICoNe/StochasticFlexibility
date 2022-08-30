@@ -71,18 +71,20 @@ average_hourly_demand = mean(demand)
 pars[:recovery_time] = 24
 pars[:c_storage] = 300.
 pars[:c_pv] = 800.
-pars[:c_wind] = 1150.
-pars[:c_in] = 0.165
-pars[:c_out] = 0.02
+pars[:c_wind] = 2500.
+pars[:c_in] = 0.2
+pars[:c_out] = 0.03
 pars[:asset_lifetime] = 20.
-pars[:investment_budget] = 10000000.
+pars[:sto_ef_ch] = 0.95
+pars[:sto_ef_dis] = 0.95
+
 pars[:feedincap] = 1e7;
 
 #=
 The model itself is constructed by the function define_energy_system
 =#
 
-pars[:scens_in_year] = 100.;
+pars[:scens_in_year] = 1.;
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
@@ -95,7 +97,7 @@ The total cost given a certain investment $I$ and schedule $O^t$ is denoted $C(I
 We now can optimize the system, initialy while ignoring flexibility:
 =#
 
-sp_no_flex = instantiate(es, simple_flex_sampler(1,100.,2), optimizer = Clp.Optimizer)
+sp_no_flex = instantiate(es, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
 set_silent(sp_no_flex)
 
 optimize!(sp_no_flex)
@@ -105,12 +107,12 @@ no_flex_decision = optimal_decision(sp_no_flex)
 objective_value(sp_no_flex)
 
 #-
-sankey_results(sp_no_flex, pv, wind, demand, [2])
+sankey_results(sp_no_flex, pv, wind, demand, timesteps)
 #-
 plot_results(sp_no_flex, pv, wind, demand)
 
 #-
-plot_outcome(sp_no_flex, 1, 1, 0., window_start = 1)
+plot_outcome(sp_no_flex, 14, -1, 1000.)
 
 #-
 @show pars[:scens_in_year] 

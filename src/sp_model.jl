@@ -112,7 +112,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 storage_losses = storage_losses
                 sto_ef_ch = sto_ef_ch
                 sto_ef_dis = sto_ef_dis
-                feedincap = p[:feedincap]
+                # feedincap = p[:feedincap]
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
             end
@@ -125,10 +125,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Grid connection
             @decision(model, gci[t in 1:number_of_hours] >= 0)
             @decision(model, gco[t in 1:number_of_hours] >= 0)
-            @constraint(model, sum(gco) <= feedincap)
-            @constraint(model, sum(gci) <= 10*feedincap) # test what leads to infeasibility
-            @constraint(model, [t in 1:number_of_hours], gci[t] <= feedincap/10.)
-            @constraint(model, [t in 1:number_of_hours], gco[t] <= feedincap/100.)
+            # @constraint(model, sum(gco) <= feedincap)
+            # @constraint(model, sum(gci) <= 10*feedincap) # test what leads to infeasibility
+            # @constraint(model, [t in 1:number_of_hours], gci[t] <= feedincap/10.)
+            # @constraint(model, [t in 1:number_of_hours], gco[t] <= feedincap/100.)
             # Storage model
             @decision(model, sto_to_bus[t in 1:number_of_hours] >= 0) # into the bus from storage
             @decision(model, sto_from_bus[t in 1:number_of_hours] >= 0)
@@ -137,7 +137,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, [t in 1:number_of_hours], sto_to_bus[t] <= u_storage*charge_cap)
             @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] + sto_from_bus[t]*sto_ef_ch - sto_to_bus[t]/sto_ef_dis)
             @constraint(model, [t in 1:number_of_hours], sto_soc[t] <= u_storage)
-            @constraint(model, sto_soc[1] == 0.)#u_storage / 2)
+            @constraint(model, sto_soc[1] == u_storage / 2)
             @constraint(model, sto_soc[number_of_hours] + sto_from_bus[number_of_hours]*sto_ef_ch - sto_to_bus[number_of_hours]/sto_ef_dis == sto_soc[1])
             # Heat model
             @decision(model, u_heatpump >= 0)
@@ -231,8 +231,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 @constraint(model, gci2[1] == gci[t_xi])
                 @constraint(model, gco2[1] == gco[t_xi])
             end
-            # check signs, but this is the basic idea
+            # check signs, but this is the basic idea:
             #@constraint(model, sum(gci2) - sum(gci[t_xi:t_xi+recovery_time]) <= s_xi*F_xi)
+            #@constraint(model, sum(gco2) - sum(gci[t_xi:t_xi+recovery_time]) <= s_xi*F_xi)
             ## Utility variables to linearize min|gci[t_xi]-gci2[1]|
             @recourse(model, gi1>=0)
             @recourse(model, gi2>=0)
