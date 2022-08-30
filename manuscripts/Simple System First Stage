@@ -1,0 +1,89 @@
+## Everything runs in the Project environment on the basepath
+
+basepath = realpath(joinpath(@__DIR__, ".."))
+
+using Pkg
+Pkg.activate(basepath)
+Pkg.instantiate()
+Pkg.add("JuMP")
+
+using JuMP 
+using DataFrames
+using CSV
+using Clp
+using Statistics
+
+
+#pv, wind and demand data
+pv_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_ninja_pv_pik.csv"), DataFrame, header = false)
+wind_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_ninja_wind_pik.csv"), DataFrame, header = false)
+demand_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "demand_Industriepark.csv"), DataFrame, header = false)
+
+#heatdemand = zeros(length(timesteps))
+pv = pv_data[timesteps .+ offset, 1]
+wind = wind_data[timesteps .+ offset, 1]
+demand = demand_data[timesteps .+ offset, 1]
+
+#Global system parameter 
+c_i = .3
+c_o = .04
+asset_lifetime = 20.
+c_pv = 800.
+c_wind = 2500.
+c_storage = 300.
+#c_heat_storage = 30.
+#c_heatpump = 20.
+inv_budget = 500000000.
+recovery_time = 24
+#COP = 3.5
+heat_losses = 0.2
+sto_ef_ch = 0.95
+sto_ef_dis = 0.95
+penalty = 10000.
+feedincap = 1000000. # affecting gci and gco
+max_sto_flow = 0.2 # relative cap of charge/discharge in one hour / 
+
+number_of_hours = minimum([length(pv), length(demand), length(wind)])
+
+
+model = Model(Clp.Optimizer)
+
+#varables declaration
+
+# Component units to be invested in, kWp
+@variable(model, u_pv >= 0)
+@variable(model, u_wind >= 0)
+@variable(model, u_storage >= 0)
+@constraint(model, c_pv * u_pv + c_wind * u_wind + c_storage * u_storage <= inv_budget)
+# Grid connection
+@variable(model, gci[t in 1:number_of_hours] >= 0)
+@variable(model, gco[t in 1:number_of_hours] >= 0)
+# Storage model
+@variable(model, sto_to_bus[t in 1:number_of_hours] >= 0) # into the bus from storage
+@variable(model, sto_from_bus[t in 1:number_of_hours] >= 0)
+@variable(model, sto_soc[t in 1:number_of_hours] >= 0)
+@constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] + sto_from_bus[t] - sto_to_bus[t])
+@constraint(model, [t in 1:number_of_hours], sto_soc[t] <= u_storage)
+@constraint(model, sto_soc[1] == u_storage / 2)
+@constraint(model, sto_soc[number_of_hours] + sto_from_bus[number_of_hours] - sto_to_bus[number_of_hours] == sto_soc[1])
+
+# Energy balance
+@constraint(model, [t in 1:number_of_hours], 
+gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - storage_losses*sto_soc[t] == 0)
+
+# Investment costs ...
+# ... and background operational schedule
+@objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage) / lifetime_factor + c_i * sum(gci) - c_o * sum(gco))
+
+print(m)
+
+status = optimize!(m)
+
+println("Objective value: ", getobjectivevalue(m))
+println("u_pv = ", getvalue(u_pv))
+println("u_w = ", getvalue(u_w))
+println("u_storage = ", getvalue(u_storage))
+println("u_heatstorage = ", getvalue(u_heatstorage))
+println("u_heatpump = ", getvalue(u_heatpump))
+println("gci = ", value.(gci))
+println("gco = ", value.(gco))
