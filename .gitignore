@@ -22,3 +22,6 @@ docs/site/
 /timeseries/validation_usecase/ 
 
 .vscode
+
+# Validation timeseries
+timeseries/validation_usecase/
