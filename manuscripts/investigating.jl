@@ -26,7 +26,7 @@ We validate the model by comparing produced results with results of optimization
 #- 
 
 include(joinpath(basepath, "src", "sp_model_old_storage.jl"))
-include(joinpath(basepath, "src", "plot_utils.jl"))
+includet(joinpath(basepath, "src", "plot_utils.jl"))
 include(joinpath(basepath, "src", "evaluation_utils.jl"));
 
 #-
@@ -115,9 +115,16 @@ objective_value(sp_no_flex)
 #-
 #sankey_results(sp_no_flex, pv, wind, demand, timesteps)
 #-
-plot_results(sp_no_flex, pv, wind, demand)
+plot_results(sp_no_flex, pv, wind, demand, plot_span = 1600:1700)
 
 #-
+
+vars = ["gci", "gco", "sto_soc", "sto_to_bus", "heat_sto_soc", "flow_energy2heat"]
+
+plot_scenario_debug(sp_no_flex, 1; vars=vars)
+
+#- 
+
 plot_outcome(sp_no_flex, 190, -1, 50., window_start=-1)
 #-
 @show pars[:scens_in_year] 
