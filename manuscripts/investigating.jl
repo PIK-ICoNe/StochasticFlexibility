@@ -26,7 +26,7 @@ We validate the model by comparing produced results with results of optimization
 #- 
 
 include(joinpath(basepath, "src", "sp_model_old_storage.jl"))
-includet(joinpath(basepath, "src", "plot_utils.jl"))
+include(joinpath(basepath, "src", "plot_utils.jl"))
 include(joinpath(basepath, "src", "evaluation_utils.jl"));
 
 #-
@@ -90,7 +90,7 @@ pars[:c_pv] = 300.
 pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
 
-pars[:scens_in_year] = 100.;
+pars[:scens_in_year] = 52.;
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
@@ -103,7 +103,7 @@ The total cost given a certain investment $I$ and schedule $O^t$ is denoted $C(I
 We now can optimize the system, initialy while ignoring flexibility:
 =#
 # no_flex_pseudo_sampler
-sp_no_flex = instantiate(es, simple_flex_sampler(10,10000, length(pv) - 24), optimizer = Clp.Optimizer)
+sp_no_flex = instantiate(es, simple_flex_sampler(20*pars[:scens_in_year],10000, length(pv) - 24), optimizer = Clp.Optimizer)
 set_silent(sp_no_flex)
 
 optimize!(sp_no_flex)
@@ -121,7 +121,7 @@ plot_results(sp_no_flex, pv, wind, demand, plot_span = 1600:1700)
 
 vars = ["gci", "gco", "sto_soc", "sto_to_bus", "heat_sto_soc", "flow_energy2heat"]
 
-plot_scenario_debug(sp_no_flex, 1; vars=vars)
+plot_scenario_debug(sp_no_flex, 100; vars=vars)
 
 #- 
 
