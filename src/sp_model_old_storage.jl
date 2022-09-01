@@ -51,7 +51,7 @@ function poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
     @assert t_max > delta_t
     times = []
     t = 1
-    interval_distribution = Exponential(48)
+    interval_distribution = Exponential(delta_t)
     while length(times) <= n
         t += recovery_time + 1
         t += round(Int, rand(interval_distribution))
