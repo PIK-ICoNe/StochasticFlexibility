@@ -1,5 +1,6 @@
 using StochasticPrograms
 using Random
+using Distributions
 
 ##
 """
@@ -27,7 +28,7 @@ default_es_pars = Dict((
     :c_heat_storage => 30.,
     :c_heatpump => 20.,
     :inv_budget => 500000000.,
-    :recovery_time => 72,
+    :recovery_time => 12,
     :COP => 3.5,
     :heat_losses => 0.2,
     :storage_losses => 0.05,
@@ -41,6 +42,27 @@ function simple_flex_sampler(n, F_max, t_max)
     [@scenario t_xi = rand(1:t_max) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = 1/n 
         for i in 1:n]
 end
+
+"""
+Exponentially distributed inter event times, with the inter event time counting
+from after the 
+"""
+function poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+    @assert t_max > delta_t
+    times = []
+    t = 1.
+    interval_distribution = Exponential(delta_t)
+    while length(times) < n
+        t += recovery_time + 1
+        t += rand(interval_distribution)
+        push!(times, t)
+    end
+    times = times .% tmax .+ 1
+
+    [@scenario t_xi = t s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = 1/(n * n_complete_sections + 1) 
+    for t in times]
+end
+
 
 """
 Get an array with a single pseudo scenario with no flexiblity. 
@@ -151,7 +173,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 storage_losses = storage_losses
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
-            t_xi_final = t_xi + recovery_time - 1 # ???
+            t_xi_final = t_xi + recovery_time
+            # t_xi is the event time.
+            # at t_xi + recovery_time all variables have to match again.
             @known(model, u_pv)
             @known(model, u_wind)
             @known(model, u_storage)
@@ -161,33 +185,15 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @known(model, sto_from_bus)
             # Post event components
             # Grid connection
-            @recourse(model, 0 <= gci2[t in 1:recovery_time] <= 10^9)
-            @recourse(model, 0 <= gco2[t in 1:recovery_time] <= 10^9)
-            # Storage model
-            @recourse(model, 0 <= sto_to_bus2[t in 1:recovery_time] <= 10^9) # into the bus from storage
-            @recourse(model, 0 <= sto_from_bus2[t in 1:recovery_time] <= 10^9)
-            @recourse(model, 0 <= sto_soc2[t in 1:recovery_time] <= 10^9)
-            @constraint(model, [t in 1:recovery_time-1], sto_soc2[t+1] == sto_soc2[t] + sto_from_bus2[t] - sto_to_bus2[t])
-            @constraint(model, [t in 1:recovery_time], sto_soc2[t] <= u_storage)
-            @constraint(model, sto_soc2[1] == sto_soc[t_xi])
-            @constraint(model, sto_soc2[recovery_time] + sto_from_bus2[recovery_time] - sto_to_bus2[recovery_time] == sto_soc[t_xi+recovery_time])
-            # Heat model
-            @recourse(model, 0 <= heat_sto_to_bus2[t in 1:recovery_time] <= 10^9) # from the heat storage
-            @recourse(model, 0 <= heat_sto_from_bus2[t in 1:recovery_time] <= 10^9)
-            @recourse(model, 0 <= heat_sto_soc2[t in 1:recovery_time] <= 10^9)
-            @recourse(model, 0 <= flow_energy2heat2[t in 1:recovery_time] <= 10^9)
-            @constraint(model, [t in 1:recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
-            @constraint(model, [t in 1:recovery_time], heat_sto_soc2[t] <= u_heat_storage)
-            @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
-            @constraint(model, heat_sto_soc2[recovery_time] + heat_sto_from_bus2[recovery_time] - heat_sto_to_bus2[recovery_time] == heat_sto_soc[t_xi+recovery_time])
-            @constraint(model, [t in 1:recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
+            @recourse(model, 0 <= gci2[t in 1:1+recovery_time] <= 10^9)
+            @recourse(model, 0 <= gco2[t in 1:1+recovery_time] <= 10^9)
 
-            # Event energy balance
-            # The storage and other fast acting components use the recourse variables here.
-            # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
-            @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] + u_wind * wind[t_xi]
-             - demand[t_xi] + sto_to_bus2[1] - sto_from_bus2[1] - storage_losses*sto_soc2[1]
-             - flow_energy2heat2[1] - F_xi * s_xi == 0) # TODO CHeck that our sign convention on positive and negative flexibility agrees with literature
+            # final time equality
+            @constraint(model, gci2[1 + recovery_time] == gci[t_xi + recovery_time])
+            @constraint(model, gco2[1 + recovery_time] == gco[t_xi + recovery_time])
+
+            # initial time equality is more complex
+            # if we have 
             if strict_flex
                 @constraint(model, gci2[1] == gci[t_xi])
                 @constraint(model, gco2[1] == gco[t_xi])
@@ -199,13 +205,45 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, 0 <= go1 <= 10^9)
             @recourse(model, 0 <= go2 <= 10^9)
             @constraint(model, gco2[1]-gco[t_xi] == go1-go2)
+
+
+            # Storage model
+            @recourse(model, 0 <= sto_to_bus2[t in 1:1+recovery_time] <= 10^9) # into the bus from storage
+            @recourse(model, 0 <= sto_from_bus2[t in 1:1+recovery_time] <= 10^9)
+            @recourse(model, 0 <= sto_soc2[t in 1:1+recovery_time] <= 10^9)
+            @constraint(model, [t in 1:1+recovery_time-1], sto_soc2[t+1] == sto_soc2[t] + sto_from_bus2[t] - sto_to_bus2[t])
+            @constraint(model, [t in 1:1+recovery_time], sto_soc2[t] <= u_storage)
+            # Start and end condition 
+            @constraint(model, sto_soc2[1] == sto_soc[t_xi])
+            @constraint(model, sto_soc2[1 + recovery_time] == sto_soc[t_xi + recovery_time])
+        
+            # Heat model
+            @recourse(model, 0 <= heat_sto_to_bus2[t in 1:1+recovery_time] <= 10^9) # from the heat storage
+            @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= 10^9)
+            @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= 10^9)
+            @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= 10^9)
+            @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
+            @constraint(model, [t in 1:1+recovery_time], heat_sto_soc2[t] <= u_heat_storage)
+            @constraint(model, [t in 1:1+recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
+            # Start and end condition
+            @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
+            @constraint(model, heat_sto_soc2[1 + recovery_time] == heat_sto_soc[t_xi + recovery_time])
+
+            # Event energy balance
+            # The storage and other fast acting components use the recourse variables here.
+            # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
+            @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] + u_wind * wind[t_xi]
+             - demand[t_xi] + sto_to_bus2[1] - sto_from_bus2[1] - storage_losses*sto_soc2[1]
+             - flow_energy2heat2[1] - F_xi * s_xi == 0) # TODO CHeck that our sign convention on positive and negative flexibility agrees with literature
+
             # Post event energy balance
-            @constraint(model, [t in 2:recovery_time],
+            @constraint(model, [t in 2:1+recovery_time],
             gci2[t] - gco2[t]
             + u_pv * pv[t + t_xi - 1] + u_wind * wind[t + t_xi - 1]
             - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] - storage_losses * sto_soc2[t] == 0)
+
             # Heat balance
-            @constraint(model, [t in 1:recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
+            @constraint(model, [t in 1:1+recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
 
             # The objective function is the difference between the adjusted schedule and the final schedule
             # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
