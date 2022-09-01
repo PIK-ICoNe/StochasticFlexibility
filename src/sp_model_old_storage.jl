@@ -215,7 +215,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Start and end condition 
             @constraint(model, sto_soc2[1] == sto_soc[t_xi])
             @constraint(model, sto_soc2[1 + recovery_time] == sto_soc[t_xi + recovery_time])
-        
+            @constraint(model,  sto_from_bus2[1 + recovery_time] == sto_from_bus[t_xi + recovery_time])
+            @constraint(model,  sto_to_bus2[1 + recovery_time] == sto_to_bus[t_xi + recovery_time])
+
             # Heat model
             @recourse(model, 0 <= heat_sto_to_bus2[t in 1:1+recovery_time] <= 10^9) # from the heat storage
             @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= 10^9)
@@ -227,9 +229,11 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Start and end condition
             @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
             @constraint(model, heat_sto_soc2[1 + recovery_time] == heat_sto_soc[t_xi + recovery_time])
+            @constraint(model,  heat_sto_from_bus2[1 + recovery_time] == heat_sto_from_bus[t_xi + recovery_time])
+            @constraint(model,  heat_sto_to_bus2[1 + recovery_time] == heat_sto_to_bus[t_xi + recovery_time])
             @constraint(model,  flow_energy2heat2[1] == flow_energy2heat[t_xi])
             @constraint(model,  flow_energy2heat2[1 + recovery_time] == flow_energy2heat[t_xi + recovery_time])
-
+            
             # Event energy balance
             # The storage and other fast acting components use the recourse variables here.
             # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
