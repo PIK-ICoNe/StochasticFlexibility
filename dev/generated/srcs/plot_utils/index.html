@@ -158,16 +158,17 @@ function sankey_results(sp, pv, w, el_d, timesteps)
     st_out = sum(value.(sp[1,:sto_from_bus])[timesteps])
     grid_in = sum(value.(sp[1,:gci])[timesteps])
     grid_out = sum(value.(sp[1,:gco])[timesteps])
+    energy2heat = sum(value.(sp[1,:flow_energy2heat])[timesteps])
     losses_charge = 1/sp.stages[1].parameters[:sto_ef_ch] - 1.
     losses_discharge = 1. - sp.stages[1].parameters[:sto_ef_dis]
     storage_losses = losses_charge*sum(value.(sp[1,:sto_from_bus])[timesteps]) + losses_discharge*sum(value.(sp[1,:sto_to_bus])[timesteps])
-    labels = [&quot;PV&quot;, &quot;Wind&quot;, &quot;Storage (input)&quot;, &quot;Storage (output)&quot;, &quot;Demand&quot;, &quot;Grid input&quot;, &quot;Grid output&quot;, &quot;Bus&quot;, &quot;Losses&quot;]
-    src = [1,2,4,6,8,8,8,8]
-    trg = [8,8,8,8,3,5,7,9]
-    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses]
+    labels = [&quot;PV&quot;, &quot;Wind&quot;, &quot;Storage (input)&quot;, &quot;Storage (output)&quot;, &quot;Demand&quot;, &quot;Grid input&quot;, &quot;Grid output&quot;, &quot;Bus&quot;, &quot;Losses&quot;, &quot;Energy to heat&quot;]
+    src = [1,2,4,6,8,8,8,8,8]
+    trg = [8,8,8,8,3,5,7,9,10]
+    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses, energy2heat]
     total_in = total_pv+total_wind+st_in+grid_in
-    total_out = total_demand+st_out+grid_out
+    total_out = total_demand+st_out+grid_out+energy2heat
     println(&quot;relative mismatch = $((total_in-total_out)/total_in)&quot;)
     #println(storage_losses/(st_in+st_out))
     sankey(src, trg, weights, node_labels = labels)
-end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../evaluation_utils/">« Evaluation</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Thursday 1 September 2022 16:10">Thursday 1 September 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../evaluation_utils/">« Evaluation</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.17 on <span class="colophon-date" title="Thursday 1 September 2022 16:17">Thursday 1 September 2022</span>. Using Julia version 1.8.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
