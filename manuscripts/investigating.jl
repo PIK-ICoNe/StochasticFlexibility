@@ -17,6 +17,7 @@ Random.seed!(1);
 
 #-
 
+
 #=
 # Validation
 
@@ -84,13 +85,21 @@ pars = copy(default_es_pars)
 
 average_hourly_demand = mean(demand)
 
-pars[:recovery_time] = 24
+recovery_time = 12
+
+pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
 
-pars[:scens_in_year] = 52.;
+t_max = length(pv) - 24
+F_max = 10000.
+delta_t = 72 # Flex event every three days
+pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
+n = round(Int, 20 * pars[:scens_in_year])
+
+scenarios = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
@@ -102,8 +111,8 @@ The total cost given a certain investment $I$ and schedule $O^t$ is denoted $C(I
 
 We now can optimize the system, initialy while ignoring flexibility:
 =#
-# no_flex_pseudo_sampler
-sp_no_flex = instantiate(es, simple_flex_sampler(20*pars[:scens_in_year],10000, length(pv) - 24), optimizer = Clp.Optimizer)
+
+sp_no_flex = instantiate(es, scenarios, optimizer = Clp.Optimizer)
 set_silent(sp_no_flex)
 
 optimize!(sp_no_flex)
