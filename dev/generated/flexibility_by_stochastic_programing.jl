@@ -17,8 +17,8 @@ include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "plot_utils.jl"))
 include(joinpath(basepath, "src", "evaluation_utils.jl"));
 
-offset = 24*7*14
-timesteps = 1:(24*7*2)
+offset = 0
+timesteps = 1:(24*365)
 
 data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
 heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
@@ -44,8 +44,10 @@ average_hourly_demand = mean(demand)
 pars[:recovery_time] = 24
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
-pars[:c_wind] = 450.
+pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
+
+pars[:]
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
