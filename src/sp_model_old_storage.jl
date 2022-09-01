@@ -227,6 +227,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Start and end condition
             @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
             @constraint(model, heat_sto_soc2[1 + recovery_time] == heat_sto_soc[t_xi + recovery_time])
+            @constraint(model,  flow_energy2heat2[1] == flow_energy2heat[t_xi])
+            @constraint(model,  flow_energy2heat2[1 + recovery_time] == flow_energy2heat[t_xi + recovery_time])
 
             # Event energy balance
             # The storage and other fast acting components use the recourse variables here.
