@@ -165,15 +165,16 @@ function sankey_results(sp, pv, w, el_d, timesteps)
     st_out = sum(value.(sp[1,:sto_from_bus])[timesteps])
     grid_in = sum(value.(sp[1,:gci])[timesteps])
     grid_out = sum(value.(sp[1,:gco])[timesteps])
+    energy2heat = sum(value.(sp[1,:flow_energy2heat])[timesteps])
     losses_charge = 1/sp.stages[1].parameters[:sto_ef_ch] - 1.
     losses_discharge = 1. - sp.stages[1].parameters[:sto_ef_dis]
     storage_losses = losses_charge*sum(value.(sp[1,:sto_from_bus])[timesteps]) + losses_discharge*sum(value.(sp[1,:sto_to_bus])[timesteps])
-    labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus", "Losses"]
-    src = [1,2,4,6,8,8,8,8]
-    trg = [8,8,8,8,3,5,7,9]
-    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses]
+    labels = ["PV", "Wind", "Storage (input)", "Storage (output)", "Demand", "Grid input", "Grid output", "Bus", "Losses", "Energy to heat"]
+    src = [1,2,4,6,8,8,8,8,8]
+    trg = [8,8,8,8,3,5,7,9,10]
+    weights = [total_pv, total_wind, st_in, grid_in, st_out, total_demand, grid_out, storage_losses, energy2heat]
     total_in = total_pv+total_wind+st_in+grid_in
-    total_out = total_demand+st_out+grid_out
+    total_out = total_demand+st_out+grid_out+energy2heat
     println("relative mismatch = $((total_in-total_out)/total_in)")
     #println(storage_losses/(st_in+st_out))
     sankey(src, trg, weights, node_labels = labels)
