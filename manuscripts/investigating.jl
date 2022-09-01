@@ -122,9 +122,9 @@ no_flex_decision = optimal_decision(sp_no_flex)
 objective_value(sp_no_flex)
 
 #-
-#sankey_results(sp_no_flex, pv, wind, demand, timesteps)
+sankey_results(sp_no_flex, pv, wind, demand, timesteps)
 #-
-plot_results(sp_no_flex, pv, wind, demand, plot_span = 1600:1700)
+plot_results(sp_no_flex, pv, wind, demand)
 
 #-
 
@@ -144,6 +144,3 @@ plot_outcome(sp_no_flex, 1100, -1, 0.)
 @show sum(value.(sp_no_flex[1,:gco]))
 @show sum(value.(sp_no_flex[1,:sto_from_bus]))
 @show sum(value.(sp_no_flex[1,:sto_to_bus]))
-
-@show value.(sp_no_flex[2,:sto_soc],1)[1] - value.(sp_no_flex[2,:sto_soc2],1)[1]
-@show value.(sp_no_flex[2,:sto_soc],1)[pars[:recovery_time]] - value.(sp_no_flex[2,:sto_soc2],1)[pars[:recovery_time]]
