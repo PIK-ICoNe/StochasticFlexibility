@@ -99,7 +99,7 @@ delta_t = 72 # Flex event every three days
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 n = round(Int, 20 * pars[:scens_in_year])
 
-scenarios = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
@@ -112,7 +112,7 @@ The total cost given a certain investment $I$ and schedule $O^t$ is denoted $C(I
 We now can optimize the system, initialy while ignoring flexibility:
 =#
 
-sp_no_flex = instantiate(es, scenarios, optimizer = Clp.Optimizer)
+sp_no_flex = instantiate(es, scens, optimizer = Clp.Optimizer)
 set_silent(sp_no_flex)
 
 optimize!(sp_no_flex)
@@ -130,11 +130,11 @@ plot_results(sp_no_flex, pv, wind, demand, plot_span = 1600:1700)
 
 vars = ["gci", "gco", "sto_soc", "sto_to_bus", "heat_sto_soc", "flow_energy2heat"]
 
-plot_scenario_debug(sp_no_flex, 100; vars=vars)
+plot_scenario_debug(sp_no_flex, 10; vars=vars)
 
 #- 
 
-plot_outcome(sp_no_flex, 190, -1, 50., window_start=-1)
+plot_outcome(sp_no_flex, 1100, -1, 0.)
 #-
 @show pars[:scens_in_year] 
 @show value.(sp_no_flex[1,:u_pv])
