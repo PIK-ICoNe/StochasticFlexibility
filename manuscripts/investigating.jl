@@ -26,7 +26,7 @@ We validate the model by comparing produced results with results of optimization
 
 #- 
 
-include(joinpath(basepath, "src", "sp_model_old_storage.jl"))
+include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "plot_utils.jl"))
 include(joinpath(basepath, "src", "evaluation_utils.jl"));
 

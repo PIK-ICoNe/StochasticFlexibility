@@ -79,6 +79,8 @@ pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
+
+pars[:]
 #-
 
 #=
