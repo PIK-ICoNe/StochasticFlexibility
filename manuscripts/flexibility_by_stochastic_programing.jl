@@ -246,7 +246,7 @@ investments_nf = get_investments(sp_no_flex)
 fix_investment!(sp_flex, investments_nf)
 fix_investment!(sp_reg_flex, investments_nf)
 
-optimize!(sp_flex)
+optimize!(sp_flex) # <= this is infeasible
 optimize!(sp_reg_flex)
 
 flex_no_invest_decision = optimal_decision(sp_flex)
@@ -277,9 +277,9 @@ We can also again evaluate the amount of flexibility available at each point in 
 =#
 
 # To find flexibility potentials we right now have to use the unregularized model:
-cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, analysis_window)
+# cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, analysis_window)
 
-plot_flexibility(analysis_window, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
+# plot_flexibility(analysis_window, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
 
 #-
 #=
