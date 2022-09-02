@@ -3,8 +3,8 @@ name: Documentation
 on:
   push:
     branches:
-      - main
-    tags: 'release'
+      - publish
+    tags: *
   pull_request:
   workflow_dispatch:
 
