@@ -95,7 +95,7 @@ Parameters:
 - p - dictionary with system parameters, such as component costs, losses and recovery time window
 - strict_flex - bool, if false, finite penalty is used
 """
-function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=false, debug_cap = 10^9)
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=false, debug_cap = 10^9, override_no_scens_in_year = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
     c_i = p[:c_i]
     c_o = p[:c_o]
@@ -106,7 +106,11 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
     sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
     max_sto_flow = 0.2 # relative cap of charge/discharge in one hour
-    scens_in_year = p[:scens_in_year]
+    if override_no_scens_in_year
+        scens_in_year = 1
+    else
+        scens_in_year = p[:scens_in_year]
+    end
     energy_system = @stochastic_model begin 
         @stage 1 begin
             @parameters begin

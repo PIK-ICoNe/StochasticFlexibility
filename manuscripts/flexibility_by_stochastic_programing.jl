@@ -70,23 +70,45 @@ Next we continue the set up. Our model comes with default parameters,
 which we slightly adjust here. We use some arbitrary values to define a dummy heat demand.
 =#
 
+# pars = copy(default_es_pars)
+
+# average_hourly_demand = mean(demand)
+
+# pars[:recovery_time] = 24
+# pars[:c_storage] = 100.
+# pars[:c_pv] = 300.
+# pars[:c_wind] = 550.
+# pars[:c_sto_op] = 0.00001;
+
+# pars[:]
+# #-
+
+
 pars = copy(default_es_pars)
 
 average_hourly_demand = mean(demand)
 
-pars[:recovery_time] = 24
+recovery_time = 12
+
+pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
 
-pars[:]
-#-
+t_max = length(pv) - 24
+F_max = 10000.
+delta_t = 72 # Flex event every three days
+pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
+n = round(Int, 20 * pars[:scens_in_year])
+
+scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
 #=
 The model itself is constructed by the function define_energy_system
 =#
 
+es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true, override_no_scens_in_year = true)
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
 
 #-
@@ -98,7 +120,8 @@ The total cost given a certain investment $I$ and schedule $O^t$ is denoted $C(I
 We now can optimize the system, initialy while ignoring flexibility:
 =#
 
-sp_no_flex = instantiate(es, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+sp_no_flex = instantiate(es_1_scen, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+
 set_silent(sp_no_flex)
 
 optimize!(sp_no_flex)
@@ -141,11 +164,11 @@ The marginal cost of flexibility is $cost_{\pm}(t) = c(pot_\pm(t), t) / pot_\pm(
 Using our model above we can analyze this in the following way:
 =#
 
-analysis_window = 190+1:190+48
+# analysis_window = 190+1:190+48
 
-cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, analysis_window)
+# cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, analysis_window)
 
-plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
+# plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
 
 #-
 
@@ -175,11 +198,11 @@ This is exactly a two stage stochastic programming problem with $c(F,t)$ as the 
 We can start by taking a simple uniform distribution between some maximum flexibility demand that can occur at any time that leaves enough space for the recovery window:
 =#
 
-n = 100
-F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
-t_max = length(pv) - es.parameters[2].defaults[:recovery_time]
+# n = 100
+# F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
+# t_max = length(pv) - es.parameters[2].defaults[:recovery_time]
 
-scens = simple_flex_sampler(n, F_max, t_max);
+# scens = simple_flex_sampler(n, F_max, t_max);
 
 #-
 
