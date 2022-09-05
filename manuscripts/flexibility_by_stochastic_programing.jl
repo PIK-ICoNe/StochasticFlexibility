@@ -98,9 +98,9 @@ pars[:c_sto_op] = 0.00001;
 
 t_max = length(pv) - 24
 F_max = 10000.
-delta_t = 72 # Flex event every three days
+delta_t = 7*24 # Flex event every week
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
-n = round(Int, 20 * pars[:scens_in_year])
+n = round(Int, 10 * pars[:scens_in_year])
 
 scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
