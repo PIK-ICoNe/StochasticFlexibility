@@ -96,7 +96,7 @@ Parameters:
 - p - dictionary with system parameters, such as component costs, losses and recovery time window
 - strict_flex - bool, if false, finite penalty is used
 """
-function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=false, debug_cap = 10^9, override_no_scens_in_year = false)
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=0., debug_cap = 10^9, override_no_scens_in_year = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
     c_i = p[:c_i]
     c_o = p[:c_o]
@@ -219,10 +219,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
 
             # initial time equality is more complex
             # if we have 
-            if strict_flex
-                @constraint(model, gci2[1] == gci[t_xi])
-                @constraint(model, gco2[1] == gco[t_xi])
-            end
+            @constraint(model, 0. == strict_flex * (gci2[1] - gci[t_xi]))
+            @constraint(model, 0. == strict_flex * (gco2[1] - gco[t_xi]))
             ## Utility variables to linearize min|gci[t_xi]-gci2[1]|
             @recourse(model, 0 <= gi1 <= debug_cap)
             @recourse(model, 0 <= gi2 <= debug_cap)
@@ -235,7 +233,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, 0 <= sto_to_bus2[t in 1:1+recovery_time] <= debug_cap) # into the bus from storage
             @recourse(model, 0 <= sto_from_bus2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= sto_soc2[t in 1:1+recovery_time] <= debug_cap)
-            @constraint(model, [t in 1:1+recovery_time-1], sto_soc2[t+1] == sto_soc2[t] + sto_from_bus2[t] * sto_ef_ch- sto_to_bus2[t] / sto_ef_dis)
+            @constraint(model, [t in 1:1+recovery_time-1], sto_soc2[t+1] == sto_soc2[t] + sto_from_bus2[t] * sto_ef_ch - sto_to_bus2[t] / sto_ef_dis)
             @constraint(model, [t in 1:1+recovery_time], sto_soc2[t] <= u_storage)
             @constraint(model, [t in 1:1+recovery_time], sto_from_bus2[t] <= max_sto_flow * u_storage)
             @constraint(model, [t in 1:1+recovery_time], sto_to_bus2[t] <= max_sto_flow * u_storage)
@@ -259,7 +257,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, heat_sto_soc2[1 + recovery_time] == heat_sto_soc[t_xi + recovery_time])
             @constraint(model,  heat_sto_from_bus2[1 + recovery_time] == heat_sto_from_bus[t_xi + recovery_time])
             @constraint(model,  heat_sto_to_bus2[1 + recovery_time] == heat_sto_to_bus[t_xi + recovery_time])
-            @constraint(model,  flow_energy2heat2[1] == flow_energy2heat[t_xi])
             @constraint(model,  flow_energy2heat2[1 + recovery_time] == flow_energy2heat[t_xi + recovery_time])
 
             # Event energy balance
