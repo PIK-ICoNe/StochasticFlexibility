@@ -62,8 +62,8 @@ scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 #-
 
 
-es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true, override_no_scens_in_year = true)
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = 1., override_no_scens_in_year = true)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = 1.)
 
 #-
 
@@ -90,7 +90,28 @@ evaluate_decision(sp_reg_flex, no_flex_decision)
 
 #-
 
-res = [evaluate_decision(sp_reg_flex, no_flex_decision, scens[i]) for i in 1:5]
+# Found a scenario that's infinity:
+
+evaluate_decision(sp_reg_flex, no_flex_decision, scens[71])
 
 #-
+
+t_xi = scens[71].data[:t_xi]
+s_xi = scens[71].data[:s_xi]
+F_xi = scens[71].data[:F_xi]
+
+plot_window = t_xi-10:t_xi+30
+
+plot_results(sp_no_flex, pv, wind, demand; plot_span = plot_window)
+plot_heat_layer(sp_no_flex, heatdemand; plot_span = plot_window)
+
+# Notable: There is no heat storage use in this period...
+
+#-
+
+# plot_outcome(sp_no_flex, t_xi, s_xi, F_xi) # No Optimum...
+
+infeasible_scenario_model = outcome_model(sp_reg_flex, optimal_decision(sp_no_flex), scens[71]; optimizer = subproblem_optimizer(sp_reg_flex))
+optimize!(infeasible_scenario_model) # Primal infeasible
+
 
