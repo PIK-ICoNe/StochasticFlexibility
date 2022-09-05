@@ -35,7 +35,8 @@ default_es_pars = Dict((
     :sto_ef_ch => 0.95,
     :sto_ef_dis => 0.95,
     :storage_losses => 0.05,
-    :penalty => 10000.
+    :penalty => 10000.,
+    :scens_in_year => 1
 ))
 
 """
@@ -130,6 +131,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 sto_ef_ch = sto_ef_ch
                 sto_ef_dis = sto_ef_dis
                 feedincap = p[:feedincap]
+                max_sto_flow = max_sto_flow
+                scens_in_year = scens_in_year
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
             end
@@ -191,6 +194,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 sto_ef_ch = sto_ef_ch
                 sto_ef_dis = sto_ef_dis
                 COP = COP
+                max_sto_flow = max_sto_flow
+                scens_in_year = scens_in_year
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
             t_xi_final = t_xi + recovery_time
