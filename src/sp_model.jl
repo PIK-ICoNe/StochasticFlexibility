@@ -166,7 +166,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, 0 <= heat_sto_from_bus[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= heat_sto_soc[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= flow_energy2heat[t in 1:number_of_hours] <= debug_cap)
-            @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] - heat_sto_to_bus[t])
+            @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + 0.98 * heat_sto_from_bus[t] - heat_sto_to_bus[t])
             @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
             @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] <= 1/COP*u_heatpump)
             # Start and end condition
@@ -249,7 +249,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= debug_cap)
-            @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
+            @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + 0.98 * heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
             @constraint(model, [t in 1:1+recovery_time], heat_sto_soc2[t] <= u_heat_storage)
             @constraint(model, [t in 1:1+recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
             # Start and end condition
@@ -275,10 +275,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Heat balance
             @constraint(model, [t in 1:1+recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)
 
-            # The objective function is the difference between the adjusted schedule and the final schedule
-            # plus the penalty. TODO: We only evaluate the cost of individual events, so we should multiply the expectation
-            # value with the expected number of events, e.g. one per week.
-            # I tried to implement this by scaling the objective function here, but that made the problem unbounded.
+            # The objective function is the difference between the adjusted schedule and the final schedule,
+            # scaled by the number of events per year.
+            # plus the penalty.
             @objective(model, Min, scens_in_year*(
               c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))

@@ -112,6 +112,34 @@ plot_heat_layer(sp_no_flex, heatdemand; plot_span = plot_window)
 # plot_outcome(sp_no_flex, t_xi, s_xi, F_xi) # No Optimum...
 
 infeasible_scenario_model = outcome_model(sp_reg_flex, optimal_decision(sp_no_flex), scens[71]; optimizer = subproblem_optimizer(sp_reg_flex))
+set_silent(infeasible_scenario_model)
 optimize!(infeasible_scenario_model) # Primal infeasible
+termination_status(infeasible_scenario_model)
+#-
 
+l = list_of_constraint_types(infeasible_scenario_model)
+all_constraints(infeasible_scenario_model, l[1]...) # The known values
+all_constraints(infeasible_scenario_model, l[2]...) # The larger then zero bounds
+all_constraints(infeasible_scenario_model, l[3]...) # The smaller than debug_cap bounds
+all_constraints(infeasible_scenario_model, l[5]...) # The smaller than u bounds
+all_constraints(infeasible_scenario_model, l[4]...) # The flow equations and everything else...
 
+# l[4] are the interesting constraints...
+
+# Idea: delete constraints one by one to see what works...
+
+#-
+
+for i in 1:length(all_constraints(infeasible_scenario_model, l[4]...))
+    println("Deleting $(all_constraints(infeasible_scenario_model, l[4]...)[i])")
+    ism = outcome_model(sp_reg_flex, optimal_decision(sp_no_flex), scens[71]; optimizer = subproblem_optimizer(sp_reg_flex))
+    set_silent(ism)
+    delete(ism, all_constraints(ism, l[4]...)[i])
+    optimize!(ism)
+    println(termination_status(ism))
+end
+
+#-
+
+value.(sp_no_flex[1, :heat_sto_to_bus])[4933]
+value.(sp_no_flex[1, :heat_sto_from_bus])[4933]
