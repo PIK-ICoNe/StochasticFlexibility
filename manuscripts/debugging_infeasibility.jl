@@ -101,8 +101,9 @@ s_xi = scens[71].data[:s_xi]
 F_xi = scens[71].data[:F_xi]
 
 plot_window = t_xi-10:t_xi+30
-
+#-
 plot_results(sp_no_flex, pv, wind, demand; plot_span = plot_window)
+#-
 plot_heat_layer(sp_no_flex, heatdemand; plot_span = plot_window)
 
 # Notable: There is no heat storage use in this period...
@@ -110,6 +111,7 @@ plot_heat_layer(sp_no_flex, heatdemand; plot_span = plot_window)
 #-
 
 # plot_outcome(sp_no_flex, t_xi, s_xi, F_xi) # No Optimum...
+#plot_results(sp_reg_flex, pv, wind, demand; plot_span = plot_window, s = 71)
 
 infeasible_scenario_model = outcome_model(sp_reg_flex, optimal_decision(sp_no_flex), scens[71]; optimizer = subproblem_optimizer(sp_reg_flex))
 set_silent(infeasible_scenario_model)

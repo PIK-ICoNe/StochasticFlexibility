@@ -1,8 +1,8 @@
 using Plots
 using SankeyPlots
 
-function plot_results(sp, pv, w, el_d; plot_span = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[], inv_dict = 0)
-    if inv_dict != 0
+function plot_results(sp, pv, w, el_d; plot_span = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[], inv_dict = nothing)
+    if !isnothing(inv_dict)
         u_pv = inv_dict[:u_pv]
         u_wind = inv_dict[:u_wind]
         u_storage = inv_dict[:u_storage]
@@ -26,13 +26,16 @@ function plot_results(sp, pv, w, el_d; plot_span = 1:length(pv), s=1, el_balance
 
     stor_charge = value.(sp[1, :sto_soc])
     plot!(plt_sto, plot_span, stor_charge[plot_span], label="global storage charge")
-    plot!(plt_sto, (t_xi):(t_xi+recovery_time), value.(sp[2, :sto_soc2],s), label=string("stochastic storage charge")*string(s), linestyle=:dash, linewidth=2)
+    if t_xi in plot_span
+        plot!(plt_sto, (t_xi):(t_xi+recovery_time), value.(sp[2, :sto_soc2],s), label=string("stochastic storage charge")*string(s), linestyle=:dash, linewidth=2)
+    end
 
     for var in el_balance_vars
         plot!(plt, plot_span, value.(sp[1, var])[plot_span], label=string(var))
-        var2 = Symbol(string(var)*"2")
-        plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), value.(sp[2, var2], s), label=string(var)*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
-
+        if t_xi in plot_span
+            var2 = Symbol(string(var)*"2")
+            plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), value.(sp[2, var2], s), label=string(var)*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
+        end
     end
     return plot(plt_invest, plt, plt_sto, layout = (3,1))
 end

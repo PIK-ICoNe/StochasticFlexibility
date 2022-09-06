@@ -219,8 +219,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
 
             # initial time equality is more complex
             # if we have 
-            @constraint(model, 0. == strict_flex * (gci2[1] - gci[t_xi]))
-            @constraint(model, 0. == strict_flex * (gco2[1] - gco[t_xi]))
+            @constraint(model, strict_flex_in, 0. == strict_flex * (gci2[1] - gci[t_xi]))
+            @constraint(model, strict_flex_out, 0. == strict_flex * (gco2[1] - gco[t_xi]))
             ## Utility variables to linearize min|gci[t_xi]-gci2[1]|
             @recourse(model, 0 <= gi1 <= debug_cap)
             @recourse(model, 0 <= gi2 <= debug_cap)
