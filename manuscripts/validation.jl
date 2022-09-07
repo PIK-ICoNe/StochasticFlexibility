@@ -82,7 +82,7 @@ pars[:feedincap] = 1e7;
 The model itself is constructed by the function define_energy_system
 =#
 
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-
 

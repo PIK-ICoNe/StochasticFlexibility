@@ -62,8 +62,8 @@ scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 #-
 
 
-es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = 1., override_no_scens_in_year = true)
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = 1.)
+es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false, override_no_scens_in_year = true)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-
 
@@ -79,7 +79,7 @@ objective_value(sp_no_flex)
 
 #-
 
-es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = 0.)
+es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true)
 
 sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
 set_silent(sp_reg_flex)

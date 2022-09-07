@@ -101,7 +101,7 @@ n = round(Int, 20 * pars[:scens_in_year])
 
 scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-
 

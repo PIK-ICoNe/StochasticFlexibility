@@ -85,7 +85,7 @@ pars[:c_sto_op] = 0.00001;
 The model itself is constructed by the function define_energy_system
 =#
 
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-
 
@@ -207,7 +207,7 @@ This is infinite as the system as built above can not actually provide the desir
 One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.
 =#
 
-es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = false)
+es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true)
 
 sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
 set_silent(sp_reg_flex)

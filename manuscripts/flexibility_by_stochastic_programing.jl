@@ -97,7 +97,7 @@ pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
 
 t_max = length(pv) - 24
-F_max = 10000.
+F_max = 1000.
 delta_t = 7*24 # Flex event every week
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 n = round(Int, 10 * pars[:scens_in_year])
@@ -108,8 +108,8 @@ scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 The model itself is constructed by the function define_energy_system
 =#
 
-es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true, override_no_scens_in_year = true)
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false, override_no_scens_in_year = true)
+es_no_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-
 
@@ -120,15 +120,15 @@ The total cost given a certain investment $I$ and schedule $O^t$ is denoted $C(I
 We now can optimize the system, initialy while ignoring flexibility:
 =#
 
-sp_no_flex = instantiate(es_1_scen, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
 
-set_silent(sp_no_flex)
+set_silent(sp_bkg)
 
-optimize!(sp_no_flex)
+optimize!(sp_bkg)
 
-no_flex_decision = optimal_decision(sp_no_flex)
+bkg_decision = optimal_decision(sp_bkg)
 
-objective_value(sp_no_flex)
+objective_value(sp_bkg)
 
 #-
 
@@ -172,17 +172,27 @@ Using our model above we can analyze this in the following way:
 
 #-
 
-plot_results(sp_no_flex, pv, wind, demand)
+plot_results(sp_bkg, pv, wind, demand)
 #-
-plot_heat_layer(sp_no_flex, heatdemand)
-#-
-
-prob_scen = @scenario t_xi = 195 s_xi = 1. F_xi = 0. probability = 1.
-evaluate_decision(sp_no_flex, no_flex_decision, prob_scen)
-
+plot_heat_layer(sp_bkg, heatdemand)
 #-
 
-outcome = outcome_model(sp_no_flex, no_flex_decision, prob_scen; optimizer = subproblem_optimizer(sp_no_flex))
+#=
+We can analyze individual scenarios by using the evaluate decision function.
+This allows us to test the system on scenarios that were not present in the original problem definition
+
+To get a model that corresponds to a single flexibility event (e.g. to investigate how the system 
+is reacting to any one event) we can construct outcome models as below. These are normal JuMP models.
+
+=#
+
+prob_scen = @scenario t_xi = 195 s_xi = 1. F_xi = 20. probability = 1.
+evaluate_decision(sp_bkg, bkg_decision, prob_scen)
+
+#-
+
+outcome = outcome_model(sp_bkg, bkg_decision, prob_scen; optimizer = subproblem_optimizer(sp_bkg))
+set_silent(outcome)
 optimize!(outcome)
 termination_status(outcome)
 
@@ -210,10 +220,10 @@ We can start by taking a simple uniform distribution between some maximum flexib
 We can now evaluate the expected cost of running the system determined above with this flexibility distribution.
 =#
 
-sp_flex = instantiate(es, scens, optimizer = Clp.Optimizer)
-set_silent(sp_flex)
+sp_no_reg = instantiate(es_no_reg, scens, optimizer = Clp.Optimizer)
+set_silent(sp_no_reg)
 
-evaluate_decision(sp_flex, no_flex_decision)
+evaluate_decision(sp_no_reg, bkg_decision)
 
 #-
 #=
@@ -221,51 +231,56 @@ This is infinite as the system as built above can not actually provide the desir
 One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.
 =#
 
-es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = false)
+es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true)
 
-sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
-set_silent(sp_reg_flex)
+sp_reg = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
+set_silent(sp_reg)
 
 #-
 #=
 Now we can evaluate the expected cost of flexibility in the system: 
 =#
 
-evaluate_decision(sp_reg_flex, no_flex_decision)
+evaluate_decision(sp_reg, bkg_decision)
 
 #-
 
 #=
-TODO / BUG: This is infinite for some time windows/seeds! This should not happen.
+TODO / BUG: This is infinite for some time windows/seeds! This should not happen. (SOLVED?!)
 
 This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost.
 To do so we fix the investment to the system we have and then optimize the remaining variables:
 =#
 
-investments_nf = get_investments(sp_no_flex)
-fix_investment!(sp_flex, investments_nf)
-fix_investment!(sp_reg_flex, investments_nf)
+#TODO: Now these are infeasible!!
 
-optimize!(sp_flex) # <= this is infeasible
-optimize!(sp_reg_flex)
+investments_nf = get_investments(sp_bkg)
+fix_investment!(sp_no_reg, investments_nf)
+fix_investment!(sp_reg, investments_nf)
 
-flex_no_invest_decision = optimal_decision(sp_flex)
-reg_flex_no_invest_decision = optimal_decision(sp_reg_flex);
+optimize!(sp_no_reg)
+optimize!(sp_reg)
+
+termination_status(sp_no_reg) # Infeasible with F_max 10000 and 1000
+termination_status(sp_reg) # Infeasible with F_max 10000, feasible with F_max 1000
+
+no_reg_no_invest_decision = optimal_decision(sp_no_reg)
+reg_no_invest_decision = optimal_decision(sp_reg);
 
 #-
 #=
 Then evaluating the decision we find much more reasonable values:
 =#
 
-evaluate_decision(sp_reg_flex, flex_no_invest_decision)
+evaluate_decision(sp_reg, no_reg_no_invest_decision)
 
 #-
 
-evaluate_decision(sp_reg_flex, reg_flex_no_invest_decision)
+evaluate_decision(sp_reg, reg_no_invest_decision)
 
 #-
 
-relative_flex_cost = evaluate_decision(sp_reg_flex, flex_no_invest_decision) / objective_value(sp_no_flex) - 1.
+no_invest_relative_cost_of_flex = evaluate_decision(sp_reg, reg_no_invest_decision) / objective_value(sp_bkg) - 1.
 
 #-
 
@@ -286,12 +301,12 @@ We can also again evaluate the amount of flexibility available at each point in 
 This shows that the model is not actually able to guarantee that there is flexibility at all times. However, it dramatically increases the amount of available flexibility:
 =#
 
-plt_av = plot();
-flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware", c = :red);
-flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware", c = :green);
-flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware", c = :red);
-flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware", c = :green);
-plt_av
+# plt_av = plot();
+# flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware", c = :red);
+# flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware", c = :green);
+# flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware", c = :red);
+# flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware", c = :green);
+# plt_av
 
 #-
 
@@ -299,27 +314,30 @@ plt_av
 We can of course also optimize the overall system investment to take flexibility into account.
 =#
 
-unfix_investment!(sp_flex, investments_nf)
-unfix_investment!(sp_reg_flex, investments_nf)
+unfix_investment!(sp_no_reg, investments_nf)
+unfix_investment!(sp_reg, investments_nf)
 
-optimize!(sp_flex)
-optimize!(sp_reg_flex)
+optimize!(sp_no_reg)
+optimize!(sp_reg)
 
-flex_invest_decision = optimal_decision(sp_flex)
-reg_flex_invest_decision = optimal_decision(sp_reg_flex);
+termination_status(sp_no_reg)
+termination_status(sp_reg)
+
+no_reg_invest_decision = optimal_decision(sp_no_reg)
+reg_invest_decision = optimal_decision(sp_reg);
 
 #=
 Then the relative cost of the system exposed to flexibility is further reduced:
 =#
 
-evaluate_decision(sp_reg_flex, flex_invest_decision)
+evaluate_decision(sp_reg, no_reg_invest_decision)
 #-
 
-evaluate_decision(sp_reg_flex, reg_flex_invest_decision)
+evaluate_decision(sp_reg, reg_invest_decision)
 
 #-
 
-relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / objective_value(sp_no_flex) - 1.
+invest_relative_cost_of_flex = evaluate_decision(sp_reg, reg_invest_decision) / objective_value(sp_bkg) - 1.
 
 #-
 
@@ -327,7 +345,7 @@ relative_flex_cost_inv = evaluate_decision(sp_reg_flex, flex_invest_decision) / 
 Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:
 =#
 
-relative_flex_cost_inv / relative_flex_cost - 1.
+invest_relative_cost_of_flex / no_invest_relative_cost_of_flex - 1.
 
 #=
 27% for this toy model.
