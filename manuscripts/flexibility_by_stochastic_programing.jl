@@ -108,8 +108,8 @@ scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 The model itself is constructed by the function define_energy_system
 =#
 
-es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true, override_no_scens_in_year = true)
-es = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = true)
+es_1_scen = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false, override_no_scens_in_year = true)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-
 
@@ -221,7 +221,7 @@ This is infinite as the system as built above can not actually provide the desir
 One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.
 =#
 
-es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, strict_flex = false)
+es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true)
 
 sp_reg_flex = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
 set_silent(sp_reg_flex)

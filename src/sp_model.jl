@@ -94,9 +94,9 @@ Parameters:
 - pv, wind - weather timeseries
 - demand, heatdemand - demand timeseries
 - p - dictionary with system parameters, such as component costs, losses and recovery time window
-- strict_flex - bool, if false, finite penalty is used
+- regularized - bool, if true, finite penalty is used
 """
-function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, strict_flex=0., debug_cap = 10^9, override_no_scens_in_year = false)
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, override_no_scens_in_year = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
     c_i = p[:c_i]
     c_o = p[:c_o]
@@ -218,9 +218,12 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, gco2[1 + recovery_time] == gco[t_xi + recovery_time])
 
             # initial time equality is more complex
-            # if we have 
-            @constraint(model, strict_flex_in, 0. == strict_flex * (gci2[1] - gci[t_xi]))
-            @constraint(model, strict_flex_out, 0. == strict_flex * (gco2[1] - gco[t_xi]))
+            # if we have strict flex 
+            if ! regularized
+                @constraint(model, strict_flex_in, gci2[1] == gci[t_xi])
+                @constraint(model, strict_flex_out, gco2[1] == gco[t_xi])
+            end
+
             ## Utility variables to linearize min|gci[t_xi]-gci2[1]|
             @recourse(model, 0 <= gi1 <= debug_cap)
             @recourse(model, 0 <= gi2 <= debug_cap)
