@@ -32,6 +32,7 @@ default_es_pars = Dict((
     :COP => 3.5,
     :feedincap => 10^7,
     :heat_losses => 0.2,
+    :heat_eff => 0.9,
     :sto_ef_ch => 0.95,
     :sto_ef_dis => 0.95,
     :storage_losses => 0.05,
@@ -127,6 +128,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_heatpump = p[:c_heatpump]
                 COP = COP
                 heat_losses = heat_losses
+                heat_eff = p[:heat_eff]
                 storage_losses = storage_losses
                 sto_ef_ch = sto_ef_ch
                 sto_ef_dis = sto_ef_dis
@@ -166,12 +168,12 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, 0 <= heat_sto_from_bus[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= heat_sto_soc[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= flow_energy2heat[t in 1:number_of_hours] <= debug_cap)
-            @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + 0.98 * heat_sto_from_bus[t] - heat_sto_to_bus[t])
+            @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] * heat_eff - heat_sto_to_bus[t] / heat_eff)
             @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
             @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] <= 1/COP*u_heatpump)
             # Start and end condition
             @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
-            @constraint(model, heat_sto_soc[number_of_hours] + heat_sto_from_bus[number_of_hours] - heat_sto_to_bus[number_of_hours] == heat_sto_soc[1])
+            @constraint(model, heat_sto_soc[number_of_hours] + heat_sto_from_bus[number_of_hours] * heat_eff - heat_sto_to_bus[number_of_hours] / heat_eff == heat_sto_soc[1])
 
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
@@ -191,6 +193,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_o = c_o
                 penalty = p[:penalty]
                 heat_losses = heat_losses
+                heat_eff = p[:heat_eff]
                 sto_ef_ch = sto_ef_ch
                 sto_ef_dis = sto_ef_dis
                 COP = COP
@@ -249,7 +252,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= debug_cap)
-            @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + 0.98 * heat_sto_from_bus2[t] - heat_sto_to_bus2[t])
+            @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] * heat_eff - heat_sto_to_bus2[t] / heat_eff)
             @constraint(model, [t in 1:1+recovery_time], heat_sto_soc2[t] <= u_heat_storage)
             @constraint(model, [t in 1:1+recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
             # Start and end condition
