@@ -94,7 +94,7 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
+pars[:c_in] = 0.4;
 
 t_max = length(pv) - 24
 F_max = 1000.
@@ -267,6 +267,21 @@ termination_status(sp_reg) # Infeasible with F_max 10000, feasible with F_max 10
 no_reg_no_invest_decision = optimal_decision(sp_no_reg)
 reg_no_invest_decision = optimal_decision(sp_reg);
 
+#-
+prob = 1/length(scens)
+is_optimal = zeros(Bool, length(scens))
+
+Threads.@threads for i in eachindex(scens)
+    println(i)
+    s = scens[i]
+    s_new = @scenario t_xi = s.data[:t_xi] s_xi = s.data[:s_xi] F_xi = 10000. probability = prob
+    scenario_model = outcome_model(sp_reg, optimal_decision(sp_reg), s_new; optimizer = subproblem_optimizer(sp_reg))
+    set_silent(scenario_model)
+    optimize!(scenario_model) # Primal infeasible
+    # println(termination_status(scenario_model))
+    # println(s_new)
+    is_optimal[i] = termination_status(scenario_model) == MOI.TerminationStatusCode(1)
+end
 #-
 #=
 Then evaluating the decision we find much more reasonable values:
