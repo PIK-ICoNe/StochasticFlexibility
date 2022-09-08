@@ -94,11 +94,12 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_in] = 0.4;
+pars[:c_sto_op] = 0.00001;
+pars[:penalty] = 1000000.
 
 t_max = length(pv) - 24
-F_max = 1000.
-delta_t = 7*24 # Flex event every week
+F_max = 10000.
+delta_t = 3*24 # Flex event every week
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 n = round(Int, 10 * pars[:scens_in_year])
 
@@ -252,7 +253,6 @@ This cost is of course completely dominated by the regularizer. However, using s
 To do so we fix the investment to the system we have and then optimize the remaining variables:
 =#
 
-#TODO: Now these are infeasible!!
 
 investments_nf = get_investments(sp_bkg)
 fix_investment!(sp_no_reg, investments_nf)
@@ -262,26 +262,27 @@ optimize!(sp_no_reg)
 optimize!(sp_reg)
 
 termination_status(sp_no_reg) # Infeasible with F_max 10000 and 1000
-termination_status(sp_reg) # Infeasible with F_max 10000, feasible with F_max 1000
+termination_status(sp_reg)
 
-no_reg_no_invest_decision = optimal_decision(sp_no_reg)
+# no_reg_no_invest_decision = optimal_decision(sp_no_reg)
 reg_no_invest_decision = optimal_decision(sp_reg);
 
 #-
-prob = 1/length(scens)
-is_optimal = zeros(Bool, length(scens))
 
-Threads.@threads for i in eachindex(scens)
-    println(i)
-    s = scens[i]
-    s_new = @scenario t_xi = s.data[:t_xi] s_xi = s.data[:s_xi] F_xi = 10000. probability = prob
-    scenario_model = outcome_model(sp_reg, optimal_decision(sp_reg), s_new; optimizer = subproblem_optimizer(sp_reg))
-    set_silent(scenario_model)
-    optimize!(scenario_model) # Primal infeasible
-    # println(termination_status(scenario_model))
-    # println(s_new)
-    is_optimal[i] = termination_status(scenario_model) == MOI.TerminationStatusCode(1)
-end
+# prob = 1/length(scens)
+# is_optimal = zeros(Bool, length(scens))
+
+# Threads.@threads for i in eachindex(scens)
+#     println(i)
+#     s = scens[i]
+#     s_new = @scenario t_xi = s.data[:t_xi] s_xi = s.data[:s_xi] F_xi = 10000. probability = prob
+#     scenario_model = outcome_model(sp_no_reg, optimal_decision(sp_reg), s_new; optimizer = subproblem_optimizer(sp_reg))
+#     set_silent(scenario_model)
+#     optimize!(scenario_model) # Primal infeasible
+#     # println(termination_status(scenario_model))
+#     # println(s_new)
+#     is_optimal[i] = termination_status(scenario_model) == MOI.TerminationStatusCode(1)
+# end
 #-
 #=
 Then evaluating the decision we find much more reasonable values:
