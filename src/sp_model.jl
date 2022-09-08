@@ -35,9 +35,9 @@ default_es_pars = Dict((
     :heat_eff => 0.9,
     :sto_ef_ch => 0.95,
     :sto_ef_dis => 0.95,
-    :storage_losses => 0.05,
     :penalty => 10000.,
-    :scens_in_year => 1
+    :scens_in_year => 1,
+    :max_sto_flow => 0.2
 ))
 
 """
@@ -99,15 +99,6 @@ Parameters:
 """
 function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, override_no_scens_in_year = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
-    c_i = p[:c_i]
-    c_o = p[:c_o]
-    recovery_time = p[:recovery_time]
-    COP = p[:COP]
-    heat_losses = p[:heat_losses]
-    storage_losses = p[:storage_losses]
-    sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
-    sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
-    max_sto_flow = 0.2 # relative cap of charge/discharge in one hour
     if override_no_scens_in_year
         scens_in_year = 1
     else
@@ -122,18 +113,17 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 c_pv = p[:c_pv]
                 c_wind = p[:c_wind]
                 c_storage = p[:c_storage]
-                c_i = c_i
-                c_o = c_o
+                c_i = p[:c_i]
+                c_o = p[:c_o]
                 c_heat_storage = p[:c_heat_storage]
                 c_heatpump = p[:c_heatpump]
-                COP = COP
-                heat_losses = heat_losses
+                COP = p[:COP]
+                heat_losses = p[:heat_losses]
                 heat_eff = p[:heat_eff]
-                storage_losses = storage_losses
-                sto_ef_ch = sto_ef_ch
-                sto_ef_dis = sto_ef_dis
+                sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
+                sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
                 feedincap = p[:feedincap]
-                max_sto_flow = max_sto_flow
+                max_sto_flow = p[:max_sto_flow] # relative cap of charge/discharge in one hour
                 scens_in_year = scens_in_year
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
@@ -154,7 +144,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Grid connection
             @decision(model, 0 <= gci[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= gco[t in 1:number_of_hours] <= debug_cap)
-            @constraint(model, sum(gco) <= feedincap)
+            @constraint(model, feedin_constr, sum(gco) <= feedincap)
 
             # Storage model
             @decision(model, 0 <= sto_to_bus[t in 1:number_of_hours] <= debug_cap) # into the bus from storage
@@ -195,16 +185,16 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
         end
         @stage 2 begin
             @parameters begin
-                recovery_time = recovery_time
-                c_i = c_i
-                c_o = c_o
+                recovery_time = p[:recovery_time]
+                c_i = p[:c_i]
+                c_o = p[:c_o]
                 penalty = p[:penalty]
-                heat_losses = heat_losses
+                heat_losses = p[:heat_losses]
                 heat_eff = p[:heat_eff]
-                sto_ef_ch = sto_ef_ch
-                sto_ef_dis = sto_ef_dis
-                COP = COP
-                max_sto_flow = max_sto_flow
+                sto_ef_ch = p[:sto_ef_ch]
+                sto_ef_dis = p[:sto_ef_dis]
+                COP = p[:COP]
+                max_sto_flow = p[:max_sto_flow]
                 scens_in_year = scens_in_year
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
