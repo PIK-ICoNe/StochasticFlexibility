@@ -49,7 +49,7 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
+pars[:c_i] = .4;
 
 t_max = length(pv) - 24
 F_max = 10000.
@@ -127,11 +127,13 @@ all_constraints(infeasible_scenario_model, l[5]...) # The smaller than u bounds
 all_constraints(infeasible_scenario_model, l[4]...) # The flow equations and everything else...
 
 # l[4] are the interesting constraints...
+#-
+#delete(infeasible_scenario_model, feedin_constr)
 
 # Idea: delete constraints one by one to see what works...
 
 #-
-
+#=
 for i in 1:length(all_constraints(infeasible_scenario_model, l[4]...))
     println("Deleting $(all_constraints(infeasible_scenario_model, l[4]...)[i])")
     ism = outcome_model(sp_reg_flex, optimal_decision(sp_no_flex), scens[71]; optimizer = subproblem_optimizer(sp_reg_flex))
@@ -145,3 +147,4 @@ end
 
 value.(sp_no_flex[1, :heat_sto_to_bus])[4933]
 value.(sp_no_flex[1, :heat_sto_from_bus])[4933]
+=#
