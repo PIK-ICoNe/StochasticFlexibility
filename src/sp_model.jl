@@ -134,6 +134,13 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, u_wind >= 0)
             @decision(model, u_storage >= 0)
             @constraint(model, c_pv * u_pv + c_wind * u_wind + c_storage * u_storage <= inv_budget)
+
+            # Curtailment
+            @decision(model, 0 <= pv_cur[t in 1:number_of_hours] <= debug_cap)
+            @decision(model, 0 <= wind_cur[t in 1:number_of_hours] <= debug_cap)
+            @constraint(model, [t in 1:number_of_hours], pv_cur[t] <= u_pv * pv[t])
+            @constraint(model, [t in 1:number_of_hours], wind_cur[t] <= u_wind * wind[t])
+
             # Grid connection
             @decision(model, 0 <= gci[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= gco[t in 1:number_of_hours] <= debug_cap)
@@ -167,7 +174,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
 
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
-            gci[t] - gco[t] + u_pv * pv[t] + u_wind * wind[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - flow_energy2heat[t] == 0)
+            gci[t] - gco[t] + u_pv * pv[t] - pv_cur[t] + u_wind * wind[t] - wind_cur[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - flow_energy2heat[t] == 0)
             # Heat balance
             @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)
             # Investment costs ...
@@ -194,7 +201,16 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             t_xi_final = t_xi + recovery_time
             # t_xi is the event time.
             # at t_xi + recovery_time all variables have to match again.
-            # Post event components
+
+            # Curtailment
+            @recourse(model, 0 <= pv_cur2[t in 1:1+recovery_time] <= debug_cap)
+            @recourse(model, 0 <= wind_cur2[t in 1:1+recovery_time] <= debug_cap)
+            @constraint(model, [t in 1:1+recovery_time], pv_cur2[t] <= u_pv * pv[t])
+            @constraint(model, [t in 1:1+recovery_time], wind_cur2[t] <= u_wind * wind[t])
+
+            @constraint(model, pv_cur2[1 + recovery_time] == pv_cur[t_xi + recovery_time])
+            @constraint(model, wind_cur2[1 + recovery_time] == wind_cur[t_xi + recovery_time])
+
             # Grid connection
             @recourse(model, 0 <= gci2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= gco2[t in 1:1+recovery_time] <= debug_cap)
@@ -251,14 +267,14 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Event energy balance
             # The storage and other fast acting components use the recourse variables here.
             # They provide the balance. Grid connection is not allowed, as we are suporting the grid here. 
-            @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] + u_wind * wind[t_xi]
+            @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] - pv_cur2[1] + u_wind * wind[t_xi] - wind_cur2[1]
              - demand[t_xi] + sto_to_bus2[1] - sto_from_bus2[1]
              - flow_energy2heat2[1] - F_xi * s_xi == 0) # TODO CHeck that our sign convention on positive and negative flexibility agrees with literature
 
             # Post event energy balance
             @constraint(model, [t in 2:1+recovery_time],
             gci2[t] - gco2[t]
-            + u_pv * pv[t + t_xi - 1] + u_wind * wind[t + t_xi - 1]
+            + u_pv * pv[t + t_xi - 1] - pv_cur2[t] + u_wind * wind[t + t_xi - 1] - wind_cur2[t]
             - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] == 0)
 
             # Heat balance
