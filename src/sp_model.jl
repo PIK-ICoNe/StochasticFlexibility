@@ -35,7 +35,6 @@ default_es_pars = Dict((
     :heat_eff => 0.9,
     :sto_ef_ch => 0.95,
     :sto_ef_dis => 0.95,
-    :storage_losses => 0.05,
     :penalty => 10000.,
     :scens_in_year => 1,
     :max_sto_flow => 0.2
