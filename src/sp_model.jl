@@ -122,7 +122,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 heat_eff = p[:heat_eff]
                 sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
                 sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
-                feedincap = p[:feedincap]
+                feedincap = p[:feedincap] * number_of_hours / 365 / 24
                 max_sto_flow = p[:max_sto_flow] # relative cap of charge/discharge in one hour
                 scens_in_year = scens_in_year
                 # Euro
