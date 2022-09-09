@@ -131,6 +131,9 @@ cost_plot = plot!(n_samples, costs)
 #-
 
 #=
+
+n_samples = 10:10:100
+
 julia> costs
 10-element Vector{Float64}:
  2.681880876640262e8
@@ -145,4 +148,38 @@ julia> costs
  2.690139815363563e8
 
 =#
+
+
+n_samples2 = 2:2:20
+sps2 = []
+
+Threads.@threads for i in eachindex(n_samples2)
+    t_max = length(pv) - 24
+    F_max = 10000.
+    delta_t = 7*24 - recovery_time
+    pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
+    n = round(Int, n_samples2[i] * pars[:scens_in_year])
+    scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+    es = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
+    sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+    set_silent(sp)
+    push!(sps2, sp)
+end
+
+#-
+
+stime = time()
+
+Threads.@threads for i in eachindex(sps2)
+    optimize!(sps2[i])
+end
+
+costs2 = objective_value.(sps2)
+
+println("Optimization performed in $(time() - stime) seconds")
+#-
+
+cost_plot = plot()
+cost_plot = plot!(n_samples2, costs2)
+#-
 
