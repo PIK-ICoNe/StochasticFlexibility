@@ -10,6 +10,7 @@ using DataFrames
 using CSV
 using Clp
 using Statistics;
+using StochasticPrograms
 
 using Random
 Random.seed!(1);
@@ -93,41 +94,43 @@ Now we evaluate the system for different frequencies of flexibility
 =#
 
 #-
-n_samples = 10:10:100
-sps = []
+t_max = length(pv) - 24
+F_max = 10000.
+delta_t = 7*24 - recovery_time
+pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 
-Threads.@threads for i in eachindex(n_samples)
-    t_max = length(pv) - 24
-    F_max = 10000.
-    delta_t = 7*24 - recovery_time
-    pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
-    n = round(Int, n_samples[i] * pars[:scens_in_year])
-    scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
-    es = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
-    sp = instantiate(es, scens, optimizer = Clp.Optimizer)
-    set_silent(sp)
-    push!(sps, sp)
-end
 
+# n_samples = 10:10:100
+# sps = [sp_bkg for n in n_samples]
+
+
+# Threads.@threads for i in eachindex(n_samples)
+#     n = round(Int, n_samples[i] * pars[:scens_in_year])
+#     scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+#     es = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
+#     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+#     set_silent(sp)
+#     sps[i] = sp
+# end
 #-
 
 #=
 Optimize only the operational schedule for flexibility
 =#
 
-stime = time()
+# stime = time()
 
-Threads.@threads for i in eachindex(sps)
-    optimize!(sps[i])
-end
+# Threads.@threads for i in eachindex(sps)
+#     optimize!(sps[i])
+# end
 
-costs = objective_value.(sps)
+# costs = objective_value.(sps)
 
-println("Optimization performed in $(time() - stime) seconds")
-#-
+# println("Optimization performed in $(time() - stime) seconds")
+# #-
 
-cost_plot = plot()
-cost_plot = plot!(n_samples, costs)
+# cost_plot = plot()
+# cost_plot = plot!(n_samples, costs)
 #-
 
 #=
@@ -150,20 +153,21 @@ julia> costs
 =#
 
 
-n_samples2 = 2:2:20
-sps2 = []
+n_samples2 = [collect(2:2:10); collect(15:5:25)]
+sps2 = [sp_bkg for n in n_samples2]
 
-Threads.@threads for i in eachindex(n_samples2)
-    t_max = length(pv) - 24
-    F_max = 10000.
-    delta_t = 7*24 - recovery_time
-    pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
+t_max = length(pv) - 24
+F_max = 10000.
+delta_t = 7*24 - recovery_time
+pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
+
+for i in eachindex(n_samples2)
     n = round(Int, n_samples2[i] * pars[:scens_in_year])
     scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
     es = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
     set_silent(sp)
-    push!(sps2, sp)
+    sps2[i] = sp
 end
 
 #-
@@ -178,8 +182,44 @@ costs2 = objective_value.(sps2)
 
 println("Optimization performed in $(time() - stime) seconds")
 #-
+# Evaluate on resampled scenarios - This seems to be taking enormously long right now...
+
+eval_dec_resample = zeros(length(n_samples2))
+
+for i in eachindex(n_samples2)
+    n = round(Int, n_samples2[i] * pars[:scens_in_year])
+    scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+    eval_dec_resample[i] = mean([evaluate_decision(sps2[i], optimal_decision(sps2[i]), scen) for scen in scens])
+    println(eval_dec_resample[i])
+end
+
+#-
+#=
+
+On the original sample
+
+mean([evaluate_decision(sp, optimal_decision(sp), scen) for scen in scens])
+
+evaluates to the objective value
+
+scens = poisson_events_with_offset(2, delta_t, recovery_time, F_max, t_max)
+es = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
+sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+set_silent(sp)
+optimize!(sp)
+ov = objective_value(sp)
+eds = [evaluate_decision(sp, optimal_decision(sp), scen) for scen in scens]
+isapprox(mean(eds), ov) # true
+
+=#
+
+#-
 
 cost_plot = plot()
-cost_plot = plot!(n_samples2, costs2)
+cost_plot = plot!(n_samples2, costs2 ./ cost_bkg)
+#-
+
+cost_plot = plot()
+cost_plot = plot!(n_samples2, eval_dec_resample ./ cost_bkg)
 #-
 
