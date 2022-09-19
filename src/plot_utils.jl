@@ -138,9 +138,10 @@ function plot_outcome_debug(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_e
         println("No optimum")
         return termination_status(sp)
     end
+    recovery_time = length(sp[:gco2])-1
 
-    recovery_window = t_xi:t_xi+length(sp[:gco2])
-    plot_window = t_xi+window_start:t_xi+length(sp[:gco2])-1+window_end
+    recovery_window = t_xi:t_xi+recovery_time
+    plot_window = t_xi+window_start:t_xi+recovery_time+window_end
 
     plots = []
 

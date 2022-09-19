@@ -28,7 +28,7 @@ include(joinpath(basepath, "src", "evaluation_utils.jl"));
 #-
 
 #=
-We load timeseries for photovoltaic (pv) and wind potential as well as demand.
+Set up system
 =#
 
 timesteps = 1:(24*365)
@@ -44,17 +44,7 @@ heatdemand = heatdemand_data[timesteps, 1]
 data = nothing; # Free the memory
 heatdemand_data = nothing;
 
-plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV (unitless)")
-plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind (unitless)")
-plot!(plt, timesteps, heatdemand, label="Heat Demand")
-plot!(plt, timesteps, demand, label="Electric Demand")
-plt
 #-
-
-#=
-Next we continue the set up. Our model comes with default parameters,
-which we slightly adjust here. We use some arbitrary values to define a dummy heat demand.
-=#
 
 pars = copy(default_es_pars)
 
@@ -67,44 +57,12 @@ pars[:c_wind] = 550.
 pars[:c_sto_op] = 0.00001;
 pars[:penalty] = 1000000.
 
-#=
-We now do the optimization for the system without any flexibility events. The background system:
-=#
-
-es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
-sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
-set_silent(sp_bkg)
-optimize!(sp_bkg)
-
-bkg_decision = optimal_decision(sp_bkg)
-
-cost_bkg = objective_value(sp_bkg)
-
-#-
-
-plot_results(sp_bkg, pv, wind, demand)
-
-#-
-
-plot_heat_layer(sp_bkg, heatdemand)
-#-
-
-#=
-Now we set up the system for different number of samples twice, the first for optimizing,
-the second as a resampled version for validating.
-=#
-
-#-
 t_max = length(pv) - 24
 F_max = 10000.
 delta_t = 7*24 - recovery_time
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 
-
-n_samples = [collect(2:2:10); collect(15:5:25)]
-
-sps = Vector{Any}([nothing for n in n_samples])
-sps_resampled = Vector{Any}([nothing for n in n_samples])
+n_samples = 25
 
 t_max = length(pv) - 24
 F_max = 10000.
@@ -113,77 +71,38 @@ pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
 
-for i in eachindex(n_samples)
-    n = round(Int, n_samples[i] * pars[:scens_in_year])
-    scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
-    scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
-    sp = instantiate(es, scens, optimizer = Clp.Optimizer)
-    sp_resampled = instantiate(es, scens_resampled, optimizer = Clp.Optimizer)
-    set_silent(sp)
-    set_silent(sp_resampled)
-    sps[i] = sp
-    sps_resampled[i] = sp_resampled
-end
+n = round(Int, n_samples * pars[:scens_in_year])
+
+scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+
+sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+set_silent(sp)
+
+#sp_resampled = instantiate(es, scens_resampled, optimizer = Clp.Optimizer)
+#set_silent(sp_resampled)
 
 #-
 
-# Optimize the first set of models...
-
-stime = time()
-
-Threads.@threads for i in eachindex(sps)
-    optimize!(sps[i]; cache = true)
-end
-
-costs = objective_value.(sps)
-
-println("Optimization performed in $(time() - stime) seconds")
-#-
-# Evaluate on the second set.
-
-costs_resampled = zeros(length(n_samples))
-
-Threads.@threads  for i in eachindex(n_samples)
-    costs_resampled[i] = evaluate_decision(sps_resampled[i], optimal_decision(sps[i]))
-end
-
-# All infinity, wtf?
-# Sanity check
+optimize!(sp; cache = true)
 
 #-
 
-costs_2 = zeros(length(n_samples))
-
-Threads.@threads  for i in eachindex(n_samples)
-    costs_2[i] = evaluate_decision(sps[i], optimal_decision(sps[i]))
-end
-
-@show isapprox(costs_2, costs)
-
-#-
 # Search for infeasible scenarios
 
-n = round(Int, n_samples[end] * pars[:scens_in_year])
-scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
-scen_infeasible = nothing
-
-#-
-
-for (i, scen) in enumerate(scens_resampled)
-    ed = evaluate_decision(sps_resampled[end], optimal_decision(sps[end]), scen)
-    if isinf(ed)
-        println("scens_resampled[$i] is infinite")
-        scen_infeasible = scen
-        break
+function find_infeasible(sp, scens) # Run this to find an infeasible scenario
+    for (i, scen) in enumerate(scens)
+        ed = evaluate_decision(sp, optimal_decision(sp), scen)
+        if isinf(ed)
+            println("Scenario $i is infinite")
+            return i, scen
+        end
     end
 end
 
 #-
 
-ed = evaluate_decision(sps[end], optimal_decision(sps[end]), scens_resampled[54])
-ed_resampled = evaluate_decision(sps_resampled[end], optimal_decision(sps[end]), scens_resampled[54])
-
-#-
+scen_infeasible = scens_resampled[1]
 
 t_i = scen_infeasible.data[:t_xi]
 F_i = scen_infeasible.data[:F_xi]
@@ -191,25 +110,33 @@ s_i = scen_infeasible.data[:s_xi]
 
 #-
 
-plot_outcome_debug(sps[end], t_i, -1, 0.0*F_i)
-
-# Whoop whoop found a bug!!
-
-#-
-
-plot_results(sps[end], pv, wind, demand; plot_span = t_i-2:t_i+32)
+plot_outcome_debug(sp, t_i, s_i, F_i)
+# Whoop whoop found an infeasible one!!
 
 #-
 
-plot_heat_layer(sps[end], heatdemand; plot_span = t_i-2:t_i+32)
+plot_outcome_debug(sp, t_i, s_i, 0.)
+# And it's indeed some sort of bug, as F = 0. should _always_ be feasible.
 
-# #-
+#-
 
-# cost_plot = plot()
-# cost_plot = plot!(n_samples, costs ./ cost_bkg)
-# #-
+# The neighbouring days:
 
-# cost_plot = plot()
-# cost_plot = plot!(n_samples, costs_resampled ./ cost_bkg)
-# #-
+plot_outcome_debug(sp, t_i-1, s_i, F_i)
+
+#-
+
+plot_outcome_debug(sp, t_i+1, s_i, F_i)
+
+#-
+
+plot_outcome_debug(sp, t_i+2, s_i, F_i)
+
+#-
+
+plot_results(sp, pv, wind, demand; plot_span = t_i-2:t_i+32)
+
+#-
+
+plot_heat_layer(sp, heatdemand; plot_span = t_i-2:t_i+32)
 
