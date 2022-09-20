@@ -121,11 +121,21 @@ plot_outcome_debug(sp, t_i, s_i, 0.)
 #-
 # A detailed look at the day in question:
 
-vars=["gci", "gco", "pv_cur", "wind_cur", "sto_from_bus", "sto_to_bus", "sto_soc", "heat_sto_soc", "heat_sto_from_bus", "heat_sto_to_bus", "flow_energy2heat"]
+all_vars=["gci", "gco", "pv_cur", "wind_cur", "sto_from_bus", "sto_to_bus", "sto_soc", "heat_sto_soc", "heat_sto_from_bus", "heat_sto_to_bus", "flow_energy2heat"]
 
-plot_base_case_raw(sp; plot_window = t_i-2:t_i+2, vars = vars)
+plot_base_case_raw(sp; plot_window = t_i-2:t_i+2, vars = all_vars)
 
 # Looks completely normal. This makes me suspect the problem is in the second stage...
+
+
+#-
+
+plot_results(sp, pv, wind, demand; plot_window = t_i-2:t_i+2)
+
+#-
+
+plot_heat_layer(sp, heatdemand; plot_window = t_i-2:t_i+32)
+
 
 #-
 
@@ -147,13 +157,33 @@ plot_outcome_debug(sp, t_i+2, s_i, F_i)
 # even if we switch of the flex request
 
 plot_outcome_debug(sp, t_i-1, s_i, 0.)
-savefig("event_F_equal_0.png")
 
 #-
 
-plot_results(sp, pv, wind, demand; plot_window = t_i-2:t_i+2)
+scen_strange = @scenario t_xi = (t_i - 1) s_xi = s_i F_xi = 0. probability = 1.
+sp_strange = outcome_model(sp, optimal_decision(sp), scen_strange; optimizer = subproblem_optimizer(sp))
+optimize!(sp_strange)
 
 #-
 
-plot_heat_layer(sp, heatdemand; plot_window = t_i-2:t_i+32)
+value(sp_strange[:go1])
+#-
 
+all_vars_2 = all_vars .* "2"
+
+all_res = map(x -> value.(sp_strange[Symbol(x)]), all_vars_2)
+all_res_1 = map(x -> x[1], all_res)
+
+for (v, r) in zip(all_vars_2, all_res_1)
+    println("$v : $r")
+end
+
+#-
+
+all_res_bc = map(x -> value.(sp_strange[Symbol(x)]), all_vars)
+all_res_bc_t_xi = map(x -> length(x) == 1 ? x[1] : x[t_i - 1], all_res_bc)
+
+
+for (v, r) in zip(all_vars, all_res_bc_t_xi)
+    println("$v : $r")
+end
