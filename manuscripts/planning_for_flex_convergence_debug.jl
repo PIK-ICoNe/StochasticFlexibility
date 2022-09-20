@@ -119,6 +119,15 @@ plot_outcome_debug(sp, t_i, s_i, 0.)
 # And it's indeed some sort of bug, as F = 0. should _always_ be feasible.
 
 #-
+# A detailed look at the day in question:
+
+vars=["gci", "gco", "pv_cur", "wind_cur", "sto_from_bus", "sto_to_bus", "sto_soc", "heat_sto_soc", "heat_sto_from_bus", "heat_sto_to_bus", "flow_energy2heat"]
+
+plot_base_case_raw(sp; plot_window = t_i-2:t_i+2, vars = vars)
+
+# Looks completely normal. This makes me suspect the problem is in the second stage...
+
+#-
 
 # The neighbouring days:
 
@@ -134,7 +143,9 @@ plot_outcome_debug(sp, t_i+2, s_i, F_i)
 
 #-
 
-plot_results(sp, pv, wind, demand; plot_window = t_i-2:t_i+32)
+#-
+
+plot_results(sp, pv, wind, demand; plot_window = t_i-2:t_i+2)
 
 #-
 

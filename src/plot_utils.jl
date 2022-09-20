@@ -135,19 +135,19 @@ function plot_base_case_raw(sp; plot_window = nothing, vars = ["gci", "gco", "st
     if isnothing(plot_window)
         plot_window = 1:length(sp[1, :gci])
     end
-    
+
     plots = []
 
     for var in vars
-        plt_var = plot(title=var, legend=:outertopright)
+        plt_var = plot(title=var, legend=:none)
         symbol_base_case = Symbol(var) # e.g. :sto_soc
 
-        plot!(plt_var, plot_window, value.(sp[1, symbol_base_case][plot_window]), label = "Base Case")
+        plot!(plt_var, plot_window, value.(sp[1, symbol_base_case][plot_window]))
     
         push!(plots, plt_var)
     end
 
-    plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
+    plot(plots...; layout=(length(plots),1), size = (600, 150*length(plots)))
 end
 
 
