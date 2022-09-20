@@ -134,9 +134,9 @@ plot_outcome_debug(sp, t_i+2, s_i, F_i)
 
 #-
 
-plot_results(sp, pv, wind, demand; plot_span = t_i-2:t_i+32)
+plot_results(sp, pv, wind, demand; plot_window = t_i-2:t_i+32)
 
 #-
 
-plot_heat_layer(sp, heatdemand; plot_span = t_i-2:t_i+32)
+plot_heat_layer(sp, heatdemand; plot_window = t_i-2:t_i+32)
 
