@@ -130,23 +130,19 @@ function plot_scenario_debug(sp, s; window_start=-2, window_end=2, vars = ["gci"
     plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
 end
 
-function plot_base_case_raw(sp, s; window_start=-2, window_end=2, vars = ["gci", "gco", "sto_soc", "heat_sto_soc", "flow_energy2heat"])
+function plot_base_case_raw(sp; plot_window = nothing, vars = ["gci", "gco", "sto_soc", "heat_sto_soc", "flow_energy2heat"])
 
-    t_xi = scenarios(sp)[s].data.t_xi
-    recovery_time = sp.stages[2].parameters[:recovery_time]
-
-    recovery_window = t_xi:t_xi+recovery_time
-    plot_window = t_xi+window_start:t_xi+recovery_time+window_end
-
+    if isnothing(plot_window)
+        plot_window = 1:length(sp[1, :gci])
+    end
+    
     plots = []
 
     for var in vars
         plt_var = plot(title=var, legend=:outertopright)
         symbol_base_case = Symbol(var) # e.g. :sto_soc
-        symbol_event_case = Symbol(var * "2") # e.g. :sto_soc2
 
         plot!(plt_var, plot_window, value.(sp[1, symbol_base_case][plot_window]), label = "Base Case")
-        plot!(plt_var, recovery_window, value.(sp[2, symbol_event_case], s), label = "Event")
     
         push!(plots, plt_var)
     end
