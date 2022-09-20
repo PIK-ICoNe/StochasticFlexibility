@@ -143,6 +143,12 @@ plot_outcome_debug(sp, t_i+2, s_i, F_i)
 
 #-
 
+# So day t_i - 1 shows weird behavior where it eats the penalty by violating gco[t_xi] == gco2[1].
+# even if we switch of the flex request
+
+plot_outcome_debug(sp, t_i-1, s_i, 0.)
+savefig("event_F_equal_0.png")
+
 #-
 
 plot_results(sp, pv, wind, demand; plot_window = t_i-2:t_i+2)
