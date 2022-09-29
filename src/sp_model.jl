@@ -219,6 +219,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, gci2[1 + recovery_time] == gci[t_xi + recovery_time])
             @constraint(model, gco2[1 + recovery_time] == gco[t_xi + recovery_time])
 
+            # Feedin cap
+            @constraint(model, sum(gco2[2:1+recovery_time]) <= sum(gco[t_xi+1:t_xi+recovery_time]))
+            
             # initial time equality is more complex
             # if we have strict flex 
             if ! regularized
