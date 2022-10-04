@@ -63,7 +63,6 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
 pars[:penalty] = 1000000.
 
 #=
@@ -93,7 +92,7 @@ Now we evaluate the system for different frequencies of flexibility
 =#
 
 #-
-flex_interval = 18:-1:3
+flex_interval = 18:-3:9
 sps = []
 
 Threads.@threads for i in eachindex(flex_interval)
@@ -150,8 +149,8 @@ println("Optimization performed in $(time() - stime) seconds")
 #-
 
 cost_plot = plot()
-cost_plot = plot!(cost_plot, 1 ./ flex_interval, flex_cost ./ cost_bkg)
-cost_plot = plot!(cost_plot, 1 ./ flex_interval, flex_cost_op ./ cost_bkg)
+cost_plot = plot!(cost_plot, 1 ./ flex_interval, flex_cost ./ cost_bkg, label = "flex_cost")
+cost_plot = plot!(cost_plot, 1 ./ flex_interval, flex_cost_op ./ cost_bkg, label = "flex_cost_op")
 cost_plot
 savefig(cost_plot, "costplot.png")
 plot!(cost_plot, ylimits=(0.9995,1.0005))
