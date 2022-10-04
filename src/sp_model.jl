@@ -220,8 +220,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, gco2[1 + recovery_time] == gco[t_xi + recovery_time])
 
             # Feedin cap
-            @constraint(model, sum(gco2[1:1+recovery_time]) <= sum(gco[t_xi:t_xi+recovery_time]) + F_xi)
-            # In the second stage the system may exceed the feedin cap by F_xi
+            @constraint(model, sum(gco2[2:1+recovery_time]) <= sum(gco[t_xi + 1:t_xi+recovery_time]))
             
             # initial time equality is more complex
             # if we have strict flex 
