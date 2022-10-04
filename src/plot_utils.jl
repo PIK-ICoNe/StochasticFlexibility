@@ -214,7 +214,7 @@ function sankey_results(sp, pv, w, el_d, timesteps)
     src = [1,1,2,2,4,6,8,8,8,8,8]
     trg = [8,11,8,11,8,8,3,5,7,9,10]
     weights = [total_pv-pv_cur, pv_cur, total_wind-wind_cur, wind_cur, st_in, grid_in, st_out, total_demand, grid_out, storage_losses, energy2heat]
-    total_in = total_pv+total_wind+st_in+grid_in
+    total_in = total_pv+total_wind+st_in+grid_in-pv_cur-wind_cur
     total_out = total_demand+st_out+grid_out+energy2heat
     println("relative mismatch = $((total_in-total_out)/total_in)")
     #println(storage_losses/(st_in+st_out))
