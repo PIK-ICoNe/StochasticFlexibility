@@ -161,7 +161,7 @@ function plot_base_case_raw(sp; plot_window = nothing, vars = ["gci", "gco", "st
         push!(plots, plt_var)
     end
 
-    plot(plots...; layout=(length(plots),1), size = (600, 150*length(plots)))
+    plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
 end
 
 

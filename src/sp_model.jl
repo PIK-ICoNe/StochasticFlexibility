@@ -97,7 +97,7 @@ Parameters:
 - p - dictionary with system parameters, such as component costs, losses and recovery time window
 - regularized - bool, if true, finite penalty is used
 """
-function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, override_no_scens_in_year = false)
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_scens_in_year = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
     if override_no_scens_in_year
         scens_in_year = 1
@@ -127,6 +127,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 scens_in_year = scens_in_year
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
+                regularize_lossy_flows = reg_lossy_flows
             end
             lifetime_factor = asset_lifetime * 365 * 24 / number_of_hours
             # Component units to be invested in, kWp
@@ -181,7 +182,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # ... and background operational schedule
             @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
             + u_heat_storage * c_heat_storage + u_heatpump * c_heatpump) / lifetime_factor
-            + c_i * sum(gci) - c_o * sum(gco))
+            + c_i * sum(gci) - c_o * sum(gco) + regularize_lossy_flows * (sum(heat_sto_from_bus) + sum(heat_sto_to_bus) + sum(sto_from_bus) + sum(sto_to_bus)))
         end
         @stage 2 begin
             @parameters begin
@@ -196,6 +197,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 COP = p[:COP]
                 max_sto_flow = p[:max_sto_flow]
                 scens_in_year = scens_in_year
+                regularize_lossy_flows = reg_lossy_flows
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
             t_xi_final = t_xi + recovery_time
@@ -289,7 +291,18 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @objective(model, Min, scens_in_year*(
               c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
-            + penalty * (gi1 + gi2) + penalty * (go1 + go2)))
+            + penalty * (gi1 + gi2) + penalty * (go1 + go2)
+            - regularize_lossy_flows * (
+                sum(heat_sto_from_bus[t_xi:t_xi_final]) + 
+                sum(heat_sto_to_bus[t_xi:t_xi_final]) + 
+                sum(sto_from_bus[t_xi:t_xi_final]) + 
+                sum(sto_to_bus[t_xi:t_xi_final]))
+            + regularize_lossy_flows * (
+                sum(heat_sto_from_bus2) + 
+                sum(heat_sto_to_bus2) + 
+                sum(sto_from_bus2) + 
+                sum(sto_to_bus2))
+            ))
         end
     end
     energy_system

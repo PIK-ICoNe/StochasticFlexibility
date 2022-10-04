@@ -102,6 +102,10 @@ end
 
 #-
 
+find_infeasible(sp, scens_resampled)
+
+#-
+
 scen_infeasible = scens_resampled[1]
 
 t_i = scen_infeasible.data[:t_xi]
@@ -141,7 +145,7 @@ plot_heat_layer(sp, heatdemand; plot_window = t_i-2:t_i+32)
 
 # The neighbouring days:
 
-plot_outcome_debug(sp, t_i-1, s_i, F_i)
+plot_outcome_debug(sp, t_i-1, s_i, 0.)
 
 #-
 
