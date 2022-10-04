@@ -92,7 +92,8 @@ Now we evaluate the system for different frequencies of flexibility
 =#
 
 #-
-flex_interval = 18:-3:9
+
+flex_interval = 18:-5:3
 sps = []
 
 Threads.@threads for i in eachindex(flex_interval)
