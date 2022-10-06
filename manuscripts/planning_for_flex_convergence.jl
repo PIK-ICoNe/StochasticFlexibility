@@ -149,10 +149,8 @@ end
 #-
 
 cost_plot = plot()
-cost_plot = plot!(n_samples, costs ./ cost_bkg)
-#-
-
-cost_plot = plot()
-cost_plot = plot!(n_samples, costs_resampled ./ cost_bkg)
+plot!(cost_plot, n_samples, costs ./ cost_bkg, label="optimization")
+plot!(cost_plot, n_samples, costs_resampled ./ cost_bkg, label="resampled")
+savefig(cost_plot, "costplot.png")
 #-
 
