@@ -207,8 +207,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Curtailment
             @recourse(model, 0 <= pv_cur2[t in 1:1+recovery_time] <= debug_cap)
             @recourse(model, 0 <= wind_cur2[t in 1:1+recovery_time] <= debug_cap)
-            @constraint(model, [t in 1:1+recovery_time], pv_cur2[t] <= u_pv * pv[t])
-            @constraint(model, [t in 1:1+recovery_time], wind_cur2[t] <= u_wind * wind[t])
+            @constraint(model, [t in 1:1+recovery_time], pv_cur2[t] <= u_pv * pv[t+t_xi])
+            @constraint(model, [t in 1:1+recovery_time], wind_cur2[t] <= u_wind * wind[t+t_xi])
 
             @constraint(model, pv_cur2[1 + recovery_time] == pv_cur[t_xi + recovery_time])
             @constraint(model, wind_cur2[1 + recovery_time] == wind_cur[t_xi + recovery_time])

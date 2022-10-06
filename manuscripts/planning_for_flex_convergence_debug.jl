@@ -11,6 +11,7 @@ using CSV
 using Clp
 using Statistics;
 using StochasticPrograms
+using Gurobi
 
 using Random
 Random.seed!(1);
@@ -76,7 +77,7 @@ n = round(Int, n_samples * pars[:scens_in_year])
 scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
-sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+sp = instantiate(es, scens, optimizer = Gurobi.Optimizer)
 set_silent(sp)
 
 #sp_resampled = instantiate(es, scens_resampled, optimizer = Clp.Optimizer)
@@ -92,7 +93,7 @@ optimize!(sp; cache = true)
 
 function find_infeasible(sp, scens) # Run this to find an infeasible scenario
     for (i, scen) in enumerate(scens)
-        ed = evaluate_decision(sp, optimal_decision(sp), scen)
+        ed = evaluate_decision_wrapper(sp, optimal_decision(sp), scen)
         if isinf(ed)
             println("Scenario $i is infinite")
             return i, scen
@@ -106,7 +107,7 @@ find_infeasible(sp, scens_resampled)
 
 #-
 
-scen_infeasible = scens_resampled[1]
+scen_infeasible = scens_resampled[17]
 
 t_i = scen_infeasible.data[:t_xi]
 F_i = scen_infeasible.data[:F_xi]
@@ -121,6 +122,28 @@ plot_outcome_debug(sp, t_i, s_i, F_i)
 
 plot_outcome_debug(sp, t_i, s_i, 0.)
 # And it's indeed some sort of bug, as F = 0. should _always_ be feasible.
+
+#-
+scen = @scenario t_xi = t_i s_xi = s_i F_xi = 0. probability = 1.
+model = outcome_model(sp, optimal_decision(sp),scen, optimizer = subproblem_optimizer(sp))
+optimize!(model)
+compute_conflict!(model)
+#-
+
+compute_conflict!(model)
+if MOI.get(model, MOI.ConflictStatus()) == MOI.CONFLICT_FOUND
+    iis_model, _ = copy_conflict(model)
+    print(iis_model)
+end
+#-
+list_of_conflicting_constraints = ConstraintRef[]
+for (F, S) in list_of_constraint_types(model)[2:end]
+    for con in all_constraints(model, F, S)
+        if MOI.get(model, MOI.ConstraintConflictStatus(), con) == MOI.IN_CONFLICT
+            push!(list_of_conflicting_constraints, con)
+        end
+    end
+end
 
 #-
 # A detailed look at the day in question:
@@ -191,3 +214,4 @@ all_res_bc_t_xi = map(x -> length(x) == 1 ? x[1] : x[t_i - 1], all_res_bc)
 for (v, r) in zip(all_vars, all_res_bc_t_xi)
     println("$v : $r")
 end
+
