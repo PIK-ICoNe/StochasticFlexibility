@@ -339,3 +339,31 @@ function unfix_investment!(sp, investments)
         unfix(decision_by_name(sp, 1, string(var_sym)))
     end
 end
+
+"""
+Get array of penalties taken in each scenario. 
+0 means that scenario was satisfied without using grid connection.
+"""
+function get_penalty_array(sp; scens = nothing)
+    if isnothing(scens)
+        scens = scenarios(sp)
+    end
+    penalties = []
+    for i in eachindex(scens)
+        push!(penalties,value.(sp[2,:penalty_taken],i)*sp.stages[2].parameters[:penalty])
+    end
+    return penalties
+end
+
+function get_penalized_scenarios(sp; scens = nothing)
+    if isnothing(scens)
+        scens = scenarios(sp)
+    end
+    penalized = []
+    for i in eachindex(scens)
+        if Bool(value.(sp[2,:penalty_taken],i))
+            push!(penalized,i)
+        end
+    end
+    return penalized
+end
