@@ -122,7 +122,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 heat_eff = p[:heat_eff]
                 sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
                 sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
-                feedincap = p[:feedincap] * number_of_hours / 365 / 24
+                feedincap = p[:feedincap]
                 max_sto_flow = p[:max_sto_flow] # relative cap of charge/discharge in one hour
                 scens_in_year = scens_in_year
                 # Euro
@@ -145,7 +145,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Grid connection
             @decision(model, 0 <= gci[t in 1:number_of_hours] <= debug_cap)
             @decision(model, 0 <= gco[t in 1:number_of_hours] <= debug_cap)
-            @constraint(model, feedin_constr, sum(gco) <= feedincap)
+            
+            # Feedin cap
+            @constraint(model, [t in 1:number_of_hours], gco[t] <= feedincap)
 
             # Storage model
             @decision(model, 0 <= sto_to_bus[t in 1:number_of_hours] <= debug_cap) # into the bus from storage
@@ -198,6 +200,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 max_sto_flow = p[:max_sto_flow]
                 scens_in_year = scens_in_year
                 regularize_lossy_flows = reg_lossy_flows
+                feedincap = p[:feedincap]
             end
             @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
             t_xi_final = t_xi + recovery_time
@@ -222,7 +225,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, gco2[1 + recovery_time] == gco[t_xi + recovery_time])
 
             # Feedin cap
-            @constraint(model, sum(gco2[2:1+recovery_time]) <= sum(gco[t_xi + 1:t_xi+recovery_time]))
+            @constraint(model, [t in 2:1+recovery_time], gco2[t] <= feedincap)
             
             # initial time equality is more complex
             # if we have strict flex 
@@ -237,6 +240,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, gci2[1]-gci[t_xi] == gi1-gi2)
             @recourse(model, 0 <= go1 <= debug_cap)
             @recourse(model, 0 <= go2 <= debug_cap)
+            @recourse(model, penalty_taken)
+            @constraint(model, penalty_taken == gi1 + gi2 + go1 + go2)
+            
             @constraint(model, gco2[1]-gco[t_xi] == go1-go2)
 
             # Storage model
