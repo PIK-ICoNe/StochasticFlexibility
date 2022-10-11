@@ -97,10 +97,9 @@ println("Background model without flexibility set up and optimized in $(time() -
 Now we set up the system for different number of samples twice, the first for optimizing,
 the second as a resampled version for validating.
 =#
+#for n_samples in [40, 80]
 results = []
-for n_samples in [40, 80]
-# for n_samples in [160]
-
+n_samples = 160
 #-
 
 stime = time()
@@ -115,14 +114,15 @@ pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 
 t_max = length(pv) - 24
 F_max = 10000.
+F_min = 3000.
 delta_t = 7*24 - recovery_time
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 
 n = round(Int, n_samples * pars[:scens_in_year])
 println("$n total scenarios, with an average of $(pars[:scens_in_year]) events per full time period")
 
-scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
-scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
+scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
 # sp = instantiate(es, scens, optimizer = LShaped.Optimizer)
 # set_optimizer_attribute(sp, MasterOptimizer(), Clp.Optimizer)
@@ -168,4 +168,16 @@ println("$(cost_resampled/cost_bkg)")
 #-
 push!(results, (n_samples, cost/cost_bkg, cost_resampled/cost_bkg))
 
-end
+#end
+
+#-
+optimize!(sp_resampled)
+
+#get_penalty_array(sp_resampled)
+penalized_resampled = get_penalized_scenarios(sp_resampled)
+penalized = get_penalized_scenarios(sp)
+
+println("Penalized scenarios in optimal system with foresight: $(length(penalized))")
+println("Penalized scenarios in optimal system without foresight: $(length(penalized_resampled))")
+
+#-
