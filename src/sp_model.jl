@@ -328,7 +328,7 @@ get_investments(sp) = Dict((
 """
 Fix the investment variables.
 """
-function fix_investment!(sp, investments)
+function fix_investment!(sp, investments)gci
     for (var_sym, value) in zip(keys(investments), values(investments))
         fix(decision_by_name(sp, 1, string(var_sym)), value)
     end
@@ -337,6 +337,42 @@ end
 function unfix_investment!(sp, investments)
     for var_sym in keys(investments)
         unfix(decision_by_name(sp, 1, string(var_sym)))
+    end
+end
+
+"""
+Get decision variables associated with 1st stage.
+"""
+get_operation(sp) = Dict((
+    :pv_cur => value.(sp[1,:pv_cur]),
+    :wind_cur => value.(sp[1,:wind_cur]),
+    :gci => value.(sp[1,:gci]),
+    :gco => value.(sp[1,:gco]),
+    :sto_to_bus => value.(sp[1,:sto_to_bus]),
+    :sto_from_bus => value.(sp[1,:sto_from_bus]),
+    :sto_soc => value.(sp[1,:sto_soc]),
+    :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]),
+    :heat_sto_from_bus => value.(sp[1,:heat_sto_from_bus]),
+    :heat_sto_soc => value.(sp[1,:heat_sto_soc]),
+    :flow_energy2heat => value.(sp[1,:flow_energy2heat])
+))
+
+"""
+Fix the investment variables.
+"""
+function fix_operation!(sp, operation, number_of_hours)
+    for (var_sym, value) in zip(keys(operation), values(operation))
+        for i in 1:number_of_hours
+            fix(decision_by_name(sp, 1, string(var_sym)*"[$i]"), value[i])
+        end
+    end
+end
+
+function unfix_operation!(sp, operation, number_of_hours)
+    for var_sym in keys(first_stage_dict)
+        for i in 1:number_of_hours
+            unfix(decision_by_name(sp, 1, string(var_sym)*"[$i]"))
+        end
     end
 end
 

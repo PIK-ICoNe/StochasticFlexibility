@@ -171,8 +171,16 @@ push!(results, (n_samples, cost/cost_bkg, cost_resampled/cost_bkg))
 #end
 
 #-
+stime = time()
+operation = get_operation(sp)
+investments = get_investments(sp)
+fix_operation!(sp_resampled, operation, length(pv))
+fix_investment!(sp_resampled, investments)
 optimize!(sp_resampled)
 
+println("Fixing the first stage and optimizing the system performed in $(time() - stime) seconds")
+
+#-
 #get_penalty_array(sp_resampled)
 penalized_resampled = get_penalized_scenarios(sp_resampled)
 penalized = get_penalized_scenarios(sp)
