@@ -351,6 +351,7 @@ function get_penalty_array(sp; scens = nothing)
     penalties_gci = []
     penalties_gco = []
     for i in eachindex(scens)
+        t_xi = scenarios(sp)[i].data.t_xi
         push!(penalties_gci,value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi])
         push!(penalties_gco,value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi])
     end
