@@ -365,7 +365,7 @@ function get_penalized_scenarios(sp; scens = nothing)
     penalized = []
     for i in eachindex(scens)
         t_xi = scenarios(sp)[i].data.t_xi
-        if value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi] != 0 || value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi] != 0
+        if abs(value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi]) >= 1e-9 || abs(value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi]) >= 1e-9
         #if Bool(value.(sp[2,:penalty_taken],i))
             push!(penalized,i)
         end
