@@ -43,8 +43,8 @@ default_es_pars = Dict((
 """
 Draw a sample of n scenarios
 """
-function simple_flex_sampler(n, F_max, t_max)
-    [@scenario t_xi = rand(1:t_max) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = 1/n 
+function simple_flex_sampler(n, F_max, t_max; F_min = 0.)
+    [@scenario t_xi = rand(1:t_max) s_xi = rand([-1, 1]) F_xi = F_min + rand() * (F_max - F_min) probability = 1/n 
         for i in 1:n]
 end
 
@@ -52,7 +52,7 @@ end
 Exponentially distributed inter event times, with the inter event time counting
 from after the recovery time. Average inter event time should be delta_t + recovery_time + 1
 """
-function poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+function poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max; F_min = 0.)
     @assert t_max > delta_t
     times = []
     t = 1
@@ -63,7 +63,7 @@ function poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
         push!(times, t)
     end
     times = times .% t_max .+ 1
-    [@scenario t_xi = t s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = 1/n 
+    [@scenario t_xi = t s_xi = rand([-1, 1]) F_xi = F_min + rand() * (F_max - F_min) probability = 1/n 
     for t in times]
 end
 
