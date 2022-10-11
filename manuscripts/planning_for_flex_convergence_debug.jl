@@ -93,6 +93,7 @@ optimize!(sp; cache = true)
 
 function find_infeasible(sp, scens) # Run this to find an infeasible scenario
     for (i, scen) in enumerate(scens)
+        println("trying scenario $i")
         ed = evaluate_decision_wrapper(sp, optimal_decision(sp), scen)
         if isinf(ed)
             println("Scenario $i is infinite")
@@ -107,7 +108,7 @@ find_infeasible(sp, scens_resampled)
 
 #-
 
-scen_infeasible = scens_resampled[17]
+scen_infeasible = scens_resampled[43]
 
 t_i = scen_infeasible.data[:t_xi]
 F_i = scen_infeasible.data[:F_xi]
@@ -130,7 +131,6 @@ optimize!(model)
 compute_conflict!(model)
 #-
 
-compute_conflict!(model)
 if MOI.get(model, MOI.ConflictStatus()) == MOI.CONFLICT_FOUND
     iis_model, _ = copy_conflict(model)
     print(iis_model)

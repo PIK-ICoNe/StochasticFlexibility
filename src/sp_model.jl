@@ -240,8 +240,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model, gci2[1]-gci[t_xi] == gi1-gi2)
             @recourse(model, 0 <= go1 <= debug_cap)
             @recourse(model, 0 <= go2 <= debug_cap)
-            @recourse(model, penalty_taken)
-            @constraint(model, penalty_taken == gi1 + gi2 + go1 + go2)
+            #@recourse(model, penalty_taken)
+            #@constraint(model, penalty_taken == gi1 + gi2 + go1 + go2)
             
             @constraint(model, gco2[1]-gco[t_xi] == go1-go2)
 
@@ -348,11 +348,13 @@ function get_penalty_array(sp; scens = nothing)
     if isnothing(scens)
         scens = scenarios(sp)
     end
-    penalties = []
+    penalties_gci = []
+    penalties_gco = []
     for i in eachindex(scens)
-        push!(penalties,value.(sp[2,:penalty_taken],i)*sp.stages[2].parameters[:penalty])
+        push!(penalties_gci,value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi])
+        push!(penalties_gco,value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi])
     end
-    return penalties
+    return penalties_gci, penalties_gco
 end
 
 function get_penalized_scenarios(sp; scens = nothing)
@@ -361,7 +363,9 @@ function get_penalized_scenarios(sp; scens = nothing)
     end
     penalized = []
     for i in eachindex(scens)
-        if Bool(value.(sp[2,:penalty_taken],i))
+        t_xi = scenarios(sp)[i].data.t_xi
+        if value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi] != 0 || value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi] != 0
+        #if Bool(value.(sp[2,:penalty_taken],i))
             push!(penalized,i)
         end
     end
