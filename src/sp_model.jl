@@ -328,7 +328,7 @@ get_investments(sp) = Dict((
 """
 Fix the investment variables.
 """
-function fix_investment!(sp, investments)gci
+function fix_investment!(sp, investments)
     for (var_sym, value) in zip(keys(investments), values(investments))
         fix(decision_by_name(sp, 1, string(var_sym)), value)
     end
