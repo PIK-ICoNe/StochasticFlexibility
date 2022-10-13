@@ -114,3 +114,14 @@ decision = optimal_decision(sp)
 cost = objective_value(sp)
 investments = get_investments(sp)
 println("Cost of optimized system relative to background: $(cost/bkg_cost)")
+
+#-
+scens_resampled = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
+
+sp_resampled = instantiate(es, scens, optimizer = Clp.Optimizer)
+fix_investment!(sp_resampled, investments)
+set_silent(sp_resampled)
+optimize!(sp_resampled)
+cost_resampled = objective_value(sp_resampled)
+println("Cost of system with optimized investment on a new sample: $(cost_resampled/bkg_cost)")
+#-
