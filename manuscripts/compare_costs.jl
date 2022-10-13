@@ -75,7 +75,7 @@ pars[:penalty] = 1000000.;
 t_max = length(pv) - 24
 F_max = 10000.
 F_min = 3000.
-delta_t = 7*24 # Flex event every week
+delta_t = 3*24 # Flex event every week
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 n = round(Int, 30 * pars[:scens_in_year])
 
@@ -114,3 +114,9 @@ decision = optimal_decision(sp)
 cost = objective_value(sp)
 investments = get_investments(sp)
 println("Cost of optimized system relative to background: $(cost/bkg_cost)")
+
+#-
+
+println("Additional cost of flexibility above background: $(op_cost - bkg_cost)")
+println("Additional cost of flexibility above background with flex optimized investment: $(cost - bkg_cost)")
+println("Relative reduction of flexibility cost due to flex optimized investment: $(1 - (cost - bkg_cost)/(op_cost - bkg_cost))")
