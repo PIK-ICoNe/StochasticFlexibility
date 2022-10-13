@@ -9,8 +9,9 @@ Pkg.activate(basepath)
 using DataFrames
 using CSV
 using Clp
-using Statistics;
-using StochasticPrograms
+using Tables
+using Statistics
+using StochasticPrograms;
 
 using Random
 Random.seed!(1);
@@ -59,16 +60,13 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
-pars[:penalty] = 1000000.
+pars[:penalty] = 1000000.;
 
 #=
 We now do the optimization for the system without any flexibility events. The background system:
 =#
 
-n_runs = 10
-
-
+n_runs = 1
 
 # Now we set up the system with the same set of parameters and sample size n_runs times.
 
@@ -124,7 +122,7 @@ cost_bkg = objective_value(sp_bkg)
 bkg_investments = get_investments(sp_bkg)
 
 #-
-mean_investments = Dict([(string(var) => mean([inv[var] for inv in investments])) for var in keys(bkg_investments)])
+mean_investments = Dict([(var => mean([inv[var] for inv in investments])) for var in keys(bkg_investments)])
 
 #-
 stime = time()
@@ -152,3 +150,11 @@ println("Cost of system with mean investment decision relative to background cos
 println("Cost of system with fixed first stage and new sample relative to background cost: $(cost_resampled/cost_bkg)")
 
 # The cost after resampling is still much higher than the background cost
+
+#-
+
+for inv in investments
+    CSV.write(joinpath(basepath, "results", "investment_sensitivity.csv"), DataFrame(investments), append = true)
+end
+
+CSV.write(joinpath(basepath, "results", "cost_sensitivity.csv"), Tables.table(results), append = true)
