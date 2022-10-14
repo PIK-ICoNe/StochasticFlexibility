@@ -36,7 +36,8 @@ This file gives a conceptual demonstration of what we do on a two week horizon.
 
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "plot_utils.jl"))
-include(joinpath(basepath, "src", "evaluation_utils.jl"));
+include(joinpath(basepath, "src", "evaluation_utils.jl"))
+include(joinpath(basepath, "src", "data_load.jl"));
 
 #-
 
@@ -44,19 +45,8 @@ include(joinpath(basepath, "src", "evaluation_utils.jl"));
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
 
-offset = 0
 timesteps = 1:(24*365)
-
-data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
-heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
-
-pv = data[timesteps .+ offset, 3]
-wind = data[timesteps .+ offset, 4]
-demand = data[timesteps .+ offset, 2]
-heatdemand = heatdemand_data[timesteps .+ offset, 1]
-
-data = nothing; # Free the memory
-heatdemand_data = nothing;
+pv, wind, demand, heatdemand = load_basic_example(timesteps);
 
 plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV (unitless)")
 plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind (unitless)")
