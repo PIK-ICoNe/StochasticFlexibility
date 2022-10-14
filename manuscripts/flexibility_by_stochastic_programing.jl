@@ -94,16 +94,16 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
-pars[:penalty] = 1000000.
+pars[:penalty] = 1000000.;
 
 t_max = length(pv) - 24
 F_max = 10000.
+F_min = 3000.
 delta_t = 3*24 # Flex event every week
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
 n = round(Int, 10 * pars[:scens_in_year])
 
-scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
+scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
 
 #=
 The model itself is constructed by the function define_energy_system

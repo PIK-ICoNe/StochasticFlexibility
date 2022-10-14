@@ -93,7 +93,7 @@ Now we evaluate the system for different frequencies of flexibility
 
 #-
 
-flex_interval = 18:-5:3
+flex_interval = 18:-6:12
 sps = []
 
 Threads.@threads for i in eachindex(flex_interval)
@@ -129,7 +129,7 @@ flex_cost_op = objective_value.(sps)
 println("Optimization performed in $(time() - stime) seconds")
 #-
 
-sps_op = deepcopy(sps);
+#sps_op = deepcopy(sps);
 
 #-
 #=
@@ -153,7 +153,7 @@ cost_plot = plot()
 cost_plot = plot!(cost_plot, 1 ./ flex_interval, flex_cost ./ cost_bkg, label = "flex_cost")
 cost_plot = plot!(cost_plot, 1 ./ flex_interval, flex_cost_op ./ cost_bkg, label = "flex_cost_op")
 cost_plot
-savefig(cost_plot, "costplot.png")
+savefig(cost_plot, "costplot1.png")
 plot!(cost_plot, ylimits=(0.9995,1.0005))
 savefig(cost_plot, "costplot2.png")
 

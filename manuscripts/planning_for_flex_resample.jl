@@ -32,7 +32,7 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
 
 timesteps = 1:(24*365)
-timesteps = 1:(6*365)
+#timesteps = 1:(6*365)
 
 data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
 heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
@@ -65,8 +65,7 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
-pars[:penalty] = 1000000.
+pars[:penalty] = 1000000.;
 
 #=
 We now do the optimization for the system without any flexibility events. The background system:
@@ -99,7 +98,7 @@ the second as a resampled version for validating.
 =#
 #for n_samples in [40, 80]
 results = []
-n_samples = 160
+n_samples = 40
 #-
 
 stime = time()
@@ -108,7 +107,6 @@ t_max = length(pv) - 24
 F_max = 10000.
 delta_t = 7*24 - recovery_time
 pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
-
 
 # n_samples = 80
 
