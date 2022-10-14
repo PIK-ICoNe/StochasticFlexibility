@@ -36,7 +36,7 @@ default_es_pars = Dict((
     :sto_ef_ch => 0.95,
     :sto_ef_dis => 0.95,
     :penalty => 10000.,
-    :scens_in_year => 1,
+    :event_per_scen => 1,
     :max_sto_flow => 0.2
 ))
 
@@ -97,12 +97,12 @@ Parameters:
 - p - dictionary with system parameters, such as component costs, losses and recovery time window
 - regularized - bool, if true, finite penalty is used
 """
-function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_scens_in_year = false)
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_event_per_scen = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
-    if override_no_scens_in_year
-        scens_in_year = 1
+    if override_no_event_per_scen
+        event_per_scen = 1
     else
-        scens_in_year = p[:scens_in_year]
+        event_per_scen = p[:event_per_scen]
     end
     energy_system = @stochastic_model begin 
         @stage 1 begin
@@ -124,7 +124,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
                 feedincap = p[:feedincap]
                 max_sto_flow = p[:max_sto_flow] # relative cap of charge/discharge in one hour
-                scens_in_year = scens_in_year
+                event_per_scen = event_per_scen
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
                 regularize_lossy_flows = reg_lossy_flows
@@ -198,7 +198,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 sto_ef_dis = p[:sto_ef_dis]
                 COP = p[:COP]
                 max_sto_flow = p[:max_sto_flow]
-                scens_in_year = scens_in_year
+                event_per_scen = event_per_scen
                 regularize_lossy_flows = reg_lossy_flows
                 feedincap = p[:feedincap]
             end
@@ -294,7 +294,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # The objective function is the difference between the adjusted schedule and the final schedule,
             # scaled by the number of events per year.
             # plus the penalty.
-            @objective(model, Min, scens_in_year*(
+            @objective(model, Min, event_per_scen*(
               c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
             - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
             + penalty * (gi1 + gi2) + penalty * (go1 + go2)

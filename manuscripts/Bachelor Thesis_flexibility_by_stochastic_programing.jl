@@ -100,8 +100,8 @@ pars[:penalty] = 1000000.
 t_max = length(pv) - 24
 F_max = 10000.
 delta_t = 3*24 # Flex event every week
-pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
-n = round(Int, 10 * pars[:scens_in_year])
+pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
+n = round(Int, 10 * pars[:event_per_scen])
 
 scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 
@@ -109,7 +109,7 @@ scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
 The model itself is constructed by the function define_energy_system
 =#
 
-es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false, override_no_scens_in_year = true)
+es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false, override_no_event_per_scen = true)
 es_no_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
 
 #-

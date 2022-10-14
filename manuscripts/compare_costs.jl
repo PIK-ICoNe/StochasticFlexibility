@@ -35,8 +35,9 @@ This file gives a conceptual demonstration of what we do on a two week horizon.
 #- 
 
 include(joinpath(basepath, "src", "sp_model.jl"))
-#include(joinpath(basepath, "src", "plot_utils.jl"))
-include(joinpath(basepath, "src", "evaluation_utils.jl"));
+include(joinpath(basepath, "src", "plot_utils.jl"))
+include(joinpath(basepath, "src", "evaluation_utils.jl"))
+include(joinpath(basepath, "src", "data_load.jl"));
 
 #-
 
@@ -44,19 +45,7 @@ include(joinpath(basepath, "src", "evaluation_utils.jl"));
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
 
-offset = 0
-timesteps = 1:(24*365)
-
-data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
-heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
-
-pv = data[timesteps, 3]
-wind = data[timesteps, 4]
-demand = data[timesteps, 2]
-heatdemand = heatdemand_data[timesteps, 1]
-
-data = nothing; # Free the memory
-heatdemand_data = nothing;
+pv, wind, demand, heatdemand = load_basic_example(1:2*365);
 
 #-
 
@@ -76,14 +65,21 @@ t_max = length(pv) - 24
 F_max = 10000.
 F_min = 3000.
 delta_t = 3*24 # Flex event every week
-pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
-n = round(Int, 30 * pars[:scens_in_year])
+pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
+n = round(Int, 30 * pars[:event_per_scen])
 
 scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
+
+#-
+scens_plot = plot_scenario_distribution(scens)
+savefig(scens_plot, "scenplot.png")
+scens_plot_sign = plot_scenario_distribution_by_sign(scens)
+savefig(scens_plot_sign, "scenplot_sign.png")
+
 #-
 es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
 #-
-es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
+es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_event_per_scen = true)
 sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
 set_silent(sp_bkg)
 
@@ -130,3 +126,37 @@ optimize!(sp_resampled)
 cost_resampled = objective_value(sp_resampled)
 println("Cost of system with optimized investment on a new sample: $(cost_resampled/bkg_cost)")
 #-
+
+sankey_results(sp_bkg, pv, wind, demand, timesteps)
+
+src = [1]
+trg = [2]
+weights = [1.]
+sankey(src, trg, weights)
+
+
+src = [1, 1, 1, 1, 2, 2, 2, 3, 4, 5]
+dst = [6, 3, 7, 4, 3, 7, 4, 7, 8, 8]
+weights = [0.1, 0.3, 0.5, 0.5, 0.2, 2.8, 1, 0.45, 4.5, 3.3]
+
+sankey(src, dst, weights)
+#-
+plotlyjs()
+plot(sankey(
+    node = PlotlyJS.attr(
+      pad = 15,
+      thickness = 20,
+      line = attr(color = "black", width = 0.5),
+      label = ["A1", "A2", "B1", "B2", "C1", "C2"],
+      color = "blue"
+    ),
+    link = PlotlyJS.attr(
+      source = [0, 1, 0, 2, 3, 3], # indices correspond to labels, eg A1, A2, A1, B1, ...
+      target = [2, 3, 3, 4, 4, 5],
+      value = [8, 4, 2, 8, 4, 2]
+  )),
+  Layout(title_text="Basic Sankey Diagram", font_size=10)
+)
+
+plot(1:10)
+

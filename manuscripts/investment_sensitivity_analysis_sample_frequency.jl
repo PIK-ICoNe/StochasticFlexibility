@@ -66,7 +66,7 @@ We now do the optimization for the system without any flexibility events. The ba
 
 # Get background investment decision for comparison
 
-es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_scens_in_year = true)
+es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_event_per_scen = true)
 sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
 set_silent(sp_bkg)
 optimize!(sp_bkg)
@@ -80,13 +80,13 @@ n_runs = 10
 t_max = length(pv) - 24
 F_max = 10000.
 delta_t = 7*24 - recovery_time
-pars[:scens_in_year] = t_max / (delta_t + recovery_time + 1);
+pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
 F_min = 3000.
 #-
 # Now we set up the system with the same set of parameters and sample size n_runs times.
 for n_samples in 40:40:200
-    n = round(Int, n_samples * pars[:scens_in_year])
-    println("$n total scenarios, with an average of $(pars[:scens_in_year]) events per full time period")
+    n = round(Int, n_samples * pars[:event_per_scen])
+    println("$n total scenarios, with an average of $(pars[:event_per_scen]) events per full time period")
 
     stime = time()
     scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
