@@ -1,4 +1,4 @@
-using Plots
+using Plots;gr()
 using SankeyPlots
 
 function plot_results(sp, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[], inv_dict = nothing)
@@ -219,4 +219,32 @@ function sankey_results(sp, pv, w, el_d, timesteps)
     println("relative mismatch = $((total_in-total_out)/total_in)")
     #println(storage_losses/(st_in+st_out))
     sankey(src, trg, weights, node_labels = labels)
+end
+
+function plot_scenario_distribution(scenarios; by_sign = false)
+    if !by_sign
+        scen_matrix = zeros((24,365))
+        for s in scenarios
+            t_xi = s.data.t_xi
+            scen_matrix[mod(t_xi,24)+1,t_xi÷24+1] = 1
+        end
+        heatmap(scen_matrix, leg=false)
+    else
+        scen_matrix_pos = zeros((24,365))
+        scen_matrix_neg = zeros((24,365))
+    
+        for s in scenarios
+            t_xi = s.data.t_xi
+            s_xi = s.data.s_xi
+            F_xi = s.data.F_xi
+            if s_xi == 1
+                scen_matrix_pos[mod(t_xi,24)+1,t_xi÷24+1] = F_xi
+            else
+                scen_matrix_neg[mod(t_xi,24)+1,t_xi÷24+1] = F_xi
+            end
+        end
+        p = plot(layout = (1,2))
+        plot!(p[1],scen_matrix_pos, seriestype = :heatmap, ratio = 365/24, framestyle = :none)
+        plot!(p[2],scen_matrix_neg, seriestype = :heatmap, ratio = 365/24, framestyle = :none)
+    end 
 end
