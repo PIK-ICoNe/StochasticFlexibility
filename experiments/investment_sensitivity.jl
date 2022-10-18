@@ -23,7 +23,7 @@ Pkg.activate(basepath)
 include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"));
 
 #-
-
+warm_up()
 #=
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
@@ -43,7 +43,7 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 100.
 pars[:c_pv] = 300.
 pars[:c_wind] = 550.
-pars[:penalty] = 1000000.
+pars[:penalty] = 1000000.;
 #-
 #= 
 We set up runs with variating scenario frequency and number of scenarios
@@ -53,13 +53,17 @@ run_id = time()
 mkdir("results/$run_id")
 savepath = joinpath(basepath, "results/$run_id")
 
-for n_samples in [[1];collect(2:2:10); collect(15:5:25)]
+n_runs = 10
+for n_samples in [collect(2:2:10); collect(15:5:25)]
     for scen_freq in 24:24:30*24
-        param_id = "$n_samples_$scen_freq"
+        param_id = "$(n_samples)_$(scen_freq)"
         savefiles = Dict(([var => joinpath(savepath, string(var)*param_id*".csv")
         for var in [:runtime, :scen, :costs, :inv]]))
-            Threads.@threads for n in 1:n_runs
-            optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefiles = savefiles)
+            instantiate_files(savefiles)
+        Threads.@threads for n in 1:n_runs
+        optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefiles = savefiles)
         end
     end
 end
+#-
+#println(time()-run_id)

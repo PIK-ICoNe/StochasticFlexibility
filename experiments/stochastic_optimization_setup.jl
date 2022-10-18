@@ -30,10 +30,10 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq; F
     investments = get_investments(sp)
     if !isnothing(savefiles)
         if :scen in keys(savefiles)
-            CSV.write(savefiles[:scen], DataFrame([s.data for s in scens]), header = string.(keys(scens[1].data)), append = true)
+            CSV.write(savefiles[:scen], DataFrame([s.data for s in scens]), append = true)
         end
         if :inv in keys(savefiles)
-            CSV.write(savefiles[:inv], DataFrame(investments), header = string.(keys(investments)), append = true)
+            CSV.write(savefiles[:inv], DataFrame(investments), append = true)
         end
         if :costs in keys(savefiles)
             CSV.write(savefiles[:costs], Tables.table([objective_value(sp)]), header = ["Objective value"], append = true)
@@ -43,4 +43,36 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq; F
         end
     end
     return sp
+end
+
+function instantiate_files(savefiles)
+    open(savefiles[:runtime], "w") do f
+        CSV.write(f,[], writeheader=true, header=["Runtime, seconds"])
+    end
+    open(savefiles[:scen], "w") do f
+        CSV.write(f,[], writeheader=true, header=["t_xi", "s_xi", "F_xi"])
+    end
+    open(savefiles[:runtime], "w") do f
+        CSV.write(f,[], writeheader=true, header=["Runtime, seconds"])
+    end
+    open(savefiles[:costs], "w") do f
+        CSV.write(f,[], writeheader=true, header=["Objective value"])
+    end
+    open(savefiles[:runtime], "w") do f
+        CSV.write(f,[], writeheader=true, header=["Runtime, seconds"])
+    end
+    open(savefiles[:inv], "w") do f
+        CSV.write(f,[], writeheader=true, header=["u_pv","u_wind","u_heatpump","u_storage","u_heat_storage"])
+    end
+end
+
+function warm_up()
+    stime = time()
+    pv, wind, demand, heatdemand = load_basic_example(1:24);
+    pars = copy(default_es_pars)
+    es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_event_per_scen = true)
+    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+    set_silent(sp_bkg)
+    optimize!(sp_bkg)
+    println("Warm up performed in $(time() - stime) seconds")
 end
