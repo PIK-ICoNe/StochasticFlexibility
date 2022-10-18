@@ -29,9 +29,9 @@ warm_up()
 #=
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
-timesteps = 1:2*365
+timesteps = 1:4*365
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps);
-
+pars[:recovery_time] = 12
 #= 
 We set up runs with variating scenario frequency and number of scenarios
 =#
@@ -48,9 +48,11 @@ for n_samples in [2,10]#[collect(2:2:10); collect(15:5:25)]
         savefiles = Dict(([var => joinpath(savepath, string(var)*param_id*".csv")
         for var in [:runtime, :scen, :costs, :inv]]))
         instantiate_files(savefiles)
+        savefile_lock = ReentrantLock()
         Threads.@threads for n in 1:n_runs
-            optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefiles = savefiles)
+            sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock, savefiles = savefiles)
         end
+        # save everything
     end
 end
 #-
