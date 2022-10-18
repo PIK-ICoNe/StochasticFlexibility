@@ -31,23 +31,7 @@ include(joinpath(basepath, "src", "data_load.jl"));
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
 timesteps = 1:24*365
-pv, wind, demand, heatdemand = load_basic_example(timesteps);
-
-#=
-Next we continue the set up. Our model comes with default parameters,
-which we slightly adjust here. We use some arbitrary values to define a dummy heat demand.
-=#
-
-pars = copy(default_es_pars)
-
-recovery_time = 12
-
-pars[:recovery_time] = recovery_time
-pars[:c_storage] = 100.
-pars[:c_pv] = 300.
-pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
-pars[:penalty] = 1000000.
+pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps);
 
 #=
 We now do the optimization for the system without any flexibility events. The background system:
@@ -61,6 +45,8 @@ set_silent(sp_bkg)
 optimize!(sp_bkg)
 cost_bkg = objective_value(sp_bkg)
 bkg_investments = get_investments(sp_bkg)
-
-CSV.write(joinpath(basepath, "results", "investments_bkg.csv"), DataFrame(bkg_investments), header = string.(keys(bkg_investments)), append = true)
+bkg_operations = get_operation(sp_bkg)
+#-
+CSV.write(joinpath(basepath, "results", "investments_bkg.csv"), DataFrame(bkg_investments), header = string.(keys(bkg_investments)), append = false)
 CSV.write(joinpath(basepath, "results", "cost_bkg.csv"), Tables.table([cost_bkg]), header = ["Objective value"])
+CSV.write(joinpath(basepath, "results", "op_bkg.csv"), DataFrame(bkg_operations), header = string.(keys(bkg_operations)), append = false)
