@@ -11,7 +11,7 @@ include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "evaluation_utils.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
-function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = nothing)
+function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = nothing, invs = nothing)
     t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset
     recovery_time = pars[:recovery_time]
     delta_t = scen_freq - recovery_time
@@ -23,6 +23,9 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
     set_silent(sp)
+    if !isnothing invs
+        fix_investment!(sp, invs)
+    end
     println("Model setup and instantiation performed in $(time() - stime) seconds")
     stime = time()
     optimize!(sp)
