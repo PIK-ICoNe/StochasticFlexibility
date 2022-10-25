@@ -32,6 +32,8 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 timesteps = 1:24*365
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps);
 pars[:recovery_time] = 12
+pars[:sto_ef_ch] = 0.97
+pars[:sto_ef_dis] = 0.97
 #= 
 We set up runs with variating scenario frequency and number of scenarios
 =#
@@ -42,7 +44,7 @@ mkdir("results/$run_id")
 savepath = joinpath(basepath, "results/$run_id")
 
 n_runs = 10
-for n_samples in [collect(2:2:10); collect(15:5:25)]
+for n_samples in [collect(2:2:10); collect(15:5:20)]
     for scen_freq in 24:24:30*24
         param_id = "$(n_samples)_$(scen_freq)"
         savefiles = Dict(([var => joinpath(savepath, string(var)*param_id*".csv")
