@@ -23,7 +23,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
     set_silent(sp)
-    if !isnothing invs
+    if !isnothing(invs)
         fix_investment!(sp, invs)
     end
     println("Model setup and instantiation performed in $(time() - stime) seconds")
