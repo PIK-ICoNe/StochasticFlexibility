@@ -22,8 +22,8 @@ function load_max_boegl(timesteps; offset = 0)
     pars[:c_wind] = 1150.
     pars[:c_in] = 0.165
     pars[:c_out] = 0.02
-    pars[:asset_lifetime] = 20.
-    pars[:investment_budget] = 10000000.
+    pars[:asset_lifetime] = 5.
+    pars[:inv_budget] = 10000000.
     pars[:feedincap] = 1e7;
     return pv, wind, demand, heatdemand, pars
 end
@@ -73,4 +73,22 @@ function load_quartier(timesteps; offset = 0)
     pars[:penalty] = 1000000.;
 
     return pv, wind, demand, heatdemand, pars
+end
+
+function load_costs(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))
+    return CSV.read(joinpath(savepath, run_id, "costs$(n_samples)_$(scen_freq).csv"), DataFrame)[!,1]
+end
+
+function load_invs(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))
+    inv_data = CSV.read(joinpath(savepath, run_id, "inv$(n_samples)_$(scen_freq).csv"), DataFrame)
+    inv = Dict(pairs(eachcol(inv_data)))
+    inv_data = nothing;
+    mean_inv = Dict((
+        [v => mean(inv[v]) for v in keys(inv)]
+    ))
+    return inv, mean_inv
+end
+
+function load_runtime(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))
+    return CSV.read(joinpath(savepath, run_id, "runtime$(n_samples)_$(scen_freq).csv"), DataFrame)[!,1]
 end
