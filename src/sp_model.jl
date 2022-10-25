@@ -134,7 +134,6 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, u_pv >= 0)
             @decision(model, u_wind >= 0)
             @decision(model, u_storage >= 0)
-            @constraint(model, c_pv * u_pv + c_wind * u_wind + c_storage * u_storage <= inv_budget)
 
             # Curtailment
             @decision(model, 0 <= pv_cur[t in 1:number_of_hours] <= debug_cap)
@@ -174,6 +173,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Start and end condition
             @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
             @constraint(model, heat_sto_soc[number_of_hours] + heat_sto_from_bus[number_of_hours] * heat_eff - heat_sto_to_bus[number_of_hours] / heat_eff == heat_sto_soc[1])
+
+            # Investment budget
+            @constraint(model, inv_budget, c_pv * u_pv + c_wind * u_wind + c_storage * u_storage 
+            + c_heat_storage * u_heat_storage + c_heatpump * u_heatpump <= inv_budget)
 
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
@@ -351,7 +354,8 @@ get_operation(sp) = Dict((
     :sto_to_bus => value.(sp[1,:sto_to_bus]),
     :sto_from_bus => value.(sp[1,:sto_from_bus]),
     :sto_soc => value.(sp[1,:sto_soc]),
-    :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]),
+    :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]    sp.stages[1].parameters[:c_pv]
+    ),
     :heat_sto_from_bus => value.(sp[1,:heat_sto_from_bus]),
     :heat_sto_soc => value.(sp[1,:heat_sto_soc]),
     :flow_energy2heat => value.(sp[1,:flow_energy2heat])
@@ -407,4 +411,13 @@ function get_penalized_scenarios(sp; scens = nothing)
         end
     end
     return penalized
+end
+
+function get_total_investment(sp)    
+    total_inv = sp.stages[1].parameters[:c_pv]*value.(sp[1, :u_pv]) + 
+                sp.stages[1].parameters[:c_wind]*value.(sp[1, :u_wind]) +
+                sp.stages[1].parameters[:c_storage]*value.(sp[1, :u_storage]) +
+                sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
+                sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
+    return total_inv
 end
