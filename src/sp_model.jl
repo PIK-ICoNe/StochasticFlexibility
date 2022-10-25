@@ -354,8 +354,7 @@ get_operation(sp) = Dict((
     :sto_to_bus => value.(sp[1,:sto_to_bus]),
     :sto_from_bus => value.(sp[1,:sto_from_bus]),
     :sto_soc => value.(sp[1,:sto_soc]),
-    :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]    sp.stages[1].parameters[:c_pv]
-    ),
+    :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]),
     :heat_sto_from_bus => value.(sp[1,:heat_sto_from_bus]),
     :heat_sto_soc => value.(sp[1,:heat_sto_soc]),
     :flow_energy2heat => value.(sp[1,:flow_energy2heat])
