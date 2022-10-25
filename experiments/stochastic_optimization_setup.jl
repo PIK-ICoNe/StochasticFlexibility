@@ -8,7 +8,6 @@ using StochasticPrograms
 using Random
 
 include(joinpath(basepath, "src", "sp_model.jl"))
-include(joinpath(basepath, "src", "evaluation_utils.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
 function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = nothing, invs = nothing)
