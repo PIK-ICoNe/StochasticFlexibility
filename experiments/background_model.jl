@@ -51,7 +51,7 @@ cost_bkg = objective_value(sp_bkg)
 bkg_investments = get_investments(sp_bkg)
 bkg_operations = get_operation(sp_bkg)
 #-
-CSV.write(joinpath(basepath, "results/bkg", "investments_bkg.csv"), DataFrame(bkg_investments), header = string.(keys(bkg_investments)), append = false)
+CSV.write(joinpath(basepath, "results/bkg", "investments_bkg.csv"), DataFrame(bkg_investments), append = false)
 CSV.write(joinpath(basepath, "results/bkg", "cost_bkg.csv"), Tables.table([cost_bkg]), header = ["Objective value"])
-CSV.write(joinpath(basepath, "results/bkg", "op_bkg.csv"), DataFrame(bkg_operations), header = string.(keys(bkg_operations)), append = false)
+CSV.write(joinpath(basepath, "results/bkg", "op_bkg.csv"), DataFrame(bkg_operations), append = false)
 #-
