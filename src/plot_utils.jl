@@ -194,8 +194,6 @@ function plot_outcome_debug(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_e
     plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
 end
 
-
-
 function sankey_results(sp, pv, w, el_d, timesteps)
     total_pv = value.(sp[1, :u_pv])*sum(pv[timesteps])
     total_wind = value.(sp[1, :u_wind])*sum(w[timesteps])
@@ -228,7 +226,9 @@ function plot_scenario_distribution(scenarios; by_sign = false)
             t_xi = s.data.t_xi
             scen_matrix[mod(t_xi,24)+1,t_xi÷24+1] = 1
         end
-        heatmap(scen_matrix, leg=false)
+        heatmap(scen_matrix, leg=false,
+        xlabel = "Day of the year",
+        ylabel = "Hour of the day", title = "Ancillary requests sample")
     else
         scen_matrix_pos = zeros((24,365))
         scen_matrix_neg = zeros((24,365))

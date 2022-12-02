@@ -36,6 +36,7 @@ pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps);
 
 pars[:sto_ef_ch] = 0.97
 pars[:sto_ef_dis] = 0.97
+pars[:recovery_time] = 12
 
 #=
 We now do the optimization for the system without any flexibility events. The background system:
@@ -55,3 +56,17 @@ CSV.write(joinpath(basepath, "results/bkg", "investments_bkg.csv"), DataFrame(bk
 CSV.write(joinpath(basepath, "results/bkg", "cost_bkg.csv"), Tables.table([cost_bkg]), header = ["Objective value"])
 CSV.write(joinpath(basepath, "results/bkg", "op_bkg.csv"), DataFrame(bkg_operations), append = false)
 #-
+
+cost_pos_bkg = zeros(length(timesteps));
+cost_neg_bkg = zeros(length(timesteps));
+
+#-
+# Analyze cost of flexibility for a fixed request
+F = 7000. # 70% of F_max
+cost_pos_bkg, cost_neg_bkg = evaluate_cost(sp_bkg, optimal_decision(sp_bkg), timesteps, F)
+
+df_pos = DataFrame( Dict((:t => timesteps, :flex_cost => cost_pos_bkg, :flex_potential => F)))
+CSV.write(joinpath(basepath, "results/bkg", "flex_pos_cost_bkg.csv"), df_pos)
+
+df_neg = DataFrame( Dict((:t => timesteps, :flex_cost => cost_neg_bkg, :flex_potential => -F)))
+CSV.write(joinpath(basepath, "results/bkg", "flex_neg_cost_bkg.csv"), df_neg)
