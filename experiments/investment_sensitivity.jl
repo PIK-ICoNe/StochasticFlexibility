@@ -52,7 +52,7 @@ for n_samples in [collect(2:2:10); collect(15:5:20)]
         instantiate_files(savefiles)
         savefile_lock = ReentrantLock()
         Threads.@threads for n in 1:n_runs
-            sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock, savefiles = savefiles)
+            optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock, savefiles = savefiles)
         end
     end
 end
