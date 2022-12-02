@@ -21,6 +21,10 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
     es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+    if maximum(heatdemand) == 0.
+        fix!(decision_by_name(sp, 1, :u_heatpump), 0.)
+        fix!(decision_by_name(sp, 1, :u_heat_storage), 0.)
+    end
     set_silent(sp)
     if !isnothing(invs)
         fix_investment!(sp, invs)
@@ -72,4 +76,26 @@ function warm_up()
     set_silent(sp_bkg)
     optimize!(sp_bkg)
     println("Warm up performed in $(time() - stime) seconds")
+end
+
+function get_background_model(pv, wind, demand, heatdemand, pars)
+    stime = time()
+    bkg = CSV.read(joinpath(basepath, "results/bkg", "investments_bkg.csv"), DataFrame)
+    bkg_inv = Dict(pairs(eachcol(bkg)))
+    bkg_inv = Dict((
+        [v => mean(bkg_inv[v]) for v in keys(bkg_inv)]
+    ))
+
+    bkg = CSV.read(joinpath(basepath, "results/bkg", "op_bkg.csv"), DataFrame)
+    bkg_op = Dict(pairs(eachcol(bkg)))
+
+    bkg = nothing;
+    es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_event_per_scen = true)
+    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+    fix_investment!(sp_bkg, bkg_inv)
+    fix_operation!(sp_bkg, bkg_op, length(timesteps))
+    set_silent(sp_bkg)
+    optimize!(sp_bkg)
+    println("Background model instntiated and optimized in $(time()-stime) seconds")
+    return sp_bkg
 end
