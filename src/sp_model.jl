@@ -99,6 +99,7 @@ Parameters:
 """
 function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_event_per_scen = false)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
+    max_heat = maximum(heatdemand)
     if override_no_event_per_scen
         event_per_scen = 1
     else
@@ -163,10 +164,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Heat model
             @decision(model, u_heatpump >= 0)
             @decision(model, u_heat_storage >= 0)
-            @decision(model, 0 <= heat_sto_to_bus[t in 1:number_of_hours] <= debug_cap) # to the heat storage
-            @decision(model, 0 <= heat_sto_from_bus[t in 1:number_of_hours] <= debug_cap)
-            @decision(model, 0 <= heat_sto_soc[t in 1:number_of_hours] <= debug_cap)
-            @decision(model, 0 <= flow_energy2heat[t in 1:number_of_hours] <= debug_cap)
+            @decision(model, 0 <= heat_sto_to_bus[t in 1:number_of_hours] <= max_heat*debug_cap) # to the heat storage
+            @decision(model, 0 <= heat_sto_from_bus[t in 1:number_of_hours] <= max_heat*debug_cap)
+            @decision(model, 0 <= heat_sto_soc[t in 1:number_of_hours] <= max_heat*debug_cap)
+            @decision(model, 0 <= flow_energy2heat[t in 1:number_of_hours] <= max_heat*debug_cap)
             @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] * heat_eff - heat_sto_to_bus[t] / heat_eff)
             @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
             @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] <= 1/COP*u_heatpump)
@@ -264,10 +265,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model,  sto_to_bus2[1 + recovery_time] == sto_to_bus[t_xi + recovery_time])
 
             # Heat model
-            @recourse(model, 0 <= heat_sto_to_bus2[t in 1:1+recovery_time] <= debug_cap) # from the heat storage
-            @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= debug_cap)
-            @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= debug_cap)
-            @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= debug_cap)
+            @recourse(model, 0 <= heat_sto_to_bus2[t in 1:1+recovery_time] <= max_heat*debug_cap) # from the heat storage
+            @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= max_heat*debug_cap)
+            @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= max_heat*debug_cap)
+            @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= max_heat*debug_cap)
             @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] * heat_eff - heat_sto_to_bus2[t] / heat_eff)
             @constraint(model, [t in 1:1+recovery_time], heat_sto_soc2[t] <= u_heat_storage)
             @constraint(model, [t in 1:1+recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
