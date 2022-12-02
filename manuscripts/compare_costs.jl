@@ -128,35 +128,3 @@ println("Cost of system with optimized investment on a new sample: $(cost_resamp
 #-
 
 sankey_results(sp_bkg, pv, wind, demand, timesteps)
-
-src = [1]
-trg = [2]
-weights = [1.]
-sankey(src, trg, weights)
-
-
-src = [1, 1, 1, 1, 2, 2, 2, 3, 4, 5]
-dst = [6, 3, 7, 4, 3, 7, 4, 7, 8, 8]
-weights = [0.1, 0.3, 0.5, 0.5, 0.2, 2.8, 1, 0.45, 4.5, 3.3]
-
-sankey(src, dst, weights)
-#-
-plotlyjs()
-plot(sankey(
-    node = PlotlyJS.attr(
-      pad = 15,
-      thickness = 20,
-      line = attr(color = "black", width = 0.5),
-      label = ["A1", "A2", "B1", "B2", "C1", "C2"],
-      color = "blue"
-    ),
-    link = PlotlyJS.attr(
-      source = [0, 1, 0, 2, 3, 3], # indices correspond to labels, eg A1, A2, A1, B1, ...
-      target = [2, 3, 3, 4, 4, 5],
-      value = [8, 4, 2, 8, 4, 2]
-  )),
-  Layout(title_text="Basic Sankey Diagram", font_size=10)
-)
-
-plot(1:10)
-
