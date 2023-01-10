@@ -97,9 +97,8 @@ Parameters:
 - p - dictionary with system parameters, such as component costs, losses and recovery time window
 - regularized - bool, if true, finite penalty is used
 """
-function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_event_per_scen = false)
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_event_per_scen = false, guaranteed_flex = false, F_pos = 1000., F_neg = -1000.)
     number_of_hours = minimum([length(pv), length(demand), length(wind)])
-    max_heat = maximum(heatdemand)
     if override_no_event_per_scen
         event_per_scen = 1
     else
@@ -164,10 +163,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Heat model
             @decision(model, u_heatpump >= 0)
             @decision(model, u_heat_storage >= 0)
-            @decision(model, 0 <= heat_sto_to_bus[t in 1:number_of_hours] <= max_heat*debug_cap) # to the heat storage
-            @decision(model, 0 <= heat_sto_from_bus[t in 1:number_of_hours] <= max_heat*debug_cap)
-            @decision(model, 0 <= heat_sto_soc[t in 1:number_of_hours] <= max_heat*debug_cap)
-            @decision(model, 0 <= flow_energy2heat[t in 1:number_of_hours] <= max_heat*debug_cap)
+            @decision(model, 0 <= heat_sto_to_bus[t in 1:number_of_hours] <= debug_cap) # to the heat storage
+            @decision(model, 0 <= heat_sto_from_bus[t in 1:number_of_hours] <= debug_cap)
+            @decision(model, 0 <= heat_sto_soc[t in 1:number_of_hours] <= debug_cap)
+            @decision(model, 0 <= flow_energy2heat[t in 1:number_of_hours] <= debug_cap)
             @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] * heat_eff - heat_sto_to_bus[t] / heat_eff)
             @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] <= u_heat_storage)
             @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] <= 1/COP*u_heatpump)
@@ -182,8 +181,16 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             # Energy balance
             @constraint(model, [t in 1:number_of_hours], 
             gci[t] - gco[t] + u_pv * pv[t] - pv_cur[t] + u_wind * wind[t] - wind_cur[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - flow_energy2heat[t] == 0)
+            
             # Heat balance
             @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)
+            
+            # Naive flex potential constraint
+            if guaranteed_flex
+                @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP >= F_pos)
+                @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_sto_soc[t+1] - u_heat_storage)/COP <= F_neg)
+            end
+            
             # Investment costs ...
             # ... and background operational schedule
             @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
@@ -265,10 +272,10 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @constraint(model,  sto_to_bus2[1 + recovery_time] == sto_to_bus[t_xi + recovery_time])
 
             # Heat model
-            @recourse(model, 0 <= heat_sto_to_bus2[t in 1:1+recovery_time] <= max_heat*debug_cap) # from the heat storage
-            @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= max_heat*debug_cap)
-            @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= max_heat*debug_cap)
-            @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= max_heat*debug_cap)
+            @recourse(model, 0 <= heat_sto_to_bus2[t in 1:1+recovery_time] <= debug_cap) # from the heat storage
+            @recourse(model, 0 <= heat_sto_from_bus2[t in 1:1+recovery_time] <= debug_cap)
+            @recourse(model, 0 <= heat_sto_soc2[t in 1:1+recovery_time] <= debug_cap)
+            @recourse(model, 0 <= flow_energy2heat2[t in 1:1+recovery_time] <= debug_cap)
             @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] * heat_eff - heat_sto_to_bus2[t] / heat_eff)
             @constraint(model, [t in 1:1+recovery_time], heat_sto_soc2[t] <= u_heat_storage)
             @constraint(model, [t in 1:1+recovery_time], flow_energy2heat2[t] <= 1/COP*u_heatpump)
@@ -420,4 +427,9 @@ function get_total_investment(sp)
                 sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
                 sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
     return total_inv
+end
+
+function first_stage_cost(sp)
+    
+    return nothing
 end

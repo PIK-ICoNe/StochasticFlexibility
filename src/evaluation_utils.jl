@@ -110,20 +110,23 @@ end
 #= We use investment and operation dictionaries rather than getting the data directly from the model, 
 as this function is meant for post-processing
 =#
-function naive_flex_potential(invs, ops, pv, wind, timesteps)
+function naive_flex_potential(invs, ops, pv, wind, pars, timesteps)
     pv_cur = ops[:pv_cur]
     wind_cur = ops[:wind_cur]
     u_storage = invs[:u_storage]
+    u_heat_storage = invs[:u_heat_storage]
     u_pv = invs[:u_pv]
     u_wind = invs[:u_wind]
     sto_soc = ops[:sto_soc]
+    heat_soc = ops[:heat_sto_soc]
+    COP = pars[:COP]
     F_pos = zeros(length(timesteps[1:end-12]))
     F_neg = zeros(length(timesteps[1:end-12]))
     for t in timesteps[1:end-12]
         # positive flexibility:
-        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1]
+        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
         # negative flexibility:
-        F_neg[t] = pv_cur[t]  + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage
+        F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
     end
     return F_pos, F_neg.* (-1.)
 end
