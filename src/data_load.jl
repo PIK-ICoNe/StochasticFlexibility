@@ -21,7 +21,7 @@ function load_max_boegl(timesteps; offset = 0, heat = nothing)
 
     pars = copy(default_es_pars)
 
-    pars[:recovery_time] = 24
+    pars[:recovery_time] = 12
     pars[:c_storage] = 300.
     pars[:c_pv] = 800.
     pars[:c_wind] = 1150.
@@ -29,6 +29,8 @@ function load_max_boegl(timesteps; offset = 0, heat = nothing)
     pars[:c_out] = 0.02
     pars[:asset_lifetime] = 5.
     pars[:inv_budget] = 10000000.
+    pars[:sto_ef_ch] = 0.97
+    pars[:sto_ef_dis] = 0.97
     pars[:feedincap] = 1e7;
     return pv, wind, demand, heatdemand, pars
 end
@@ -82,6 +84,10 @@ end
 
 function load_costs(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))
     return CSV.read(joinpath(savepath, run_id, "costs$(n_samples)_$(scen_freq).csv"), DataFrame)[!,1]
+end
+
+function load_costs(run_id, param::String; savepath = joinpath(basepath, "results"))
+    return CSV.read(joinpath(savepath, run_id, "costs"*param*".csv"), DataFrame)[!,1]
 end
 
 function load_invs(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))

@@ -248,3 +248,24 @@ function plot_scenario_distribution(scenarios; by_sign = false)
         plot!(p[2],scen_matrix_neg, seriestype = :heatmap, ratio = 365/24, framestyle = :none)
     end 
 end
+
+function plot_flex_sources(op, invs, pv, wind, COP; timesteps = 1:24*365)
+    #@constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP >= F_pos)
+    #@constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_sto_soc[t+1] - u_heat_storage)/COP <= F_neg)
+    pos_cur = op[:pv_cur][timesteps[begin:end-1]] .+ op[:wind_cur][timesteps[begin:end-1]]
+    neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*invs[:u_pv] .- wind[timesteps[begin:end-1]].*invs[:u_wind]
+    pos_sto = op[:sto_soc][timesteps[begin+1:end]]
+    neg_sto = pos_sto .- invs[:u_storage]
+    pos_heat_sto = op[:heat_sto_soc][timesteps[begin+1:end]]/COP
+    neg_heat_sto = pos_heat_sto .- invs[:u_heat_storage]/COP
+    #=plt = plot(layout = (1,2))
+    plot!(plt[1], pos_cur, fill = (0, 0.5))
+    plot!(plt[1], pos_sto, fill = (0, 0.5))
+    plot!(plt[1], pos_heat_sto, fill = (0, 0.5))
+    plot!(plt[2], neg_cur, fill = (0, 0.5))
+    plot!(plt[2], neg_sto, fill = (0, 0.5))
+    plot!(plt[2], neg_heat_sto, fill = (0, 0.5))=#
+    p1 = areaplot(timesteps[begin:end-1], [pos_cur, pos_sto, pos_heat_sto], fillalpha = [0.5 0.5 0.5])
+    p2 = areaplot(timesteps[begin:end-1], [-neg_cur, -neg_sto, -neg_heat_sto], fillalpha = [0.5 0.5 0.5])
+    plot(p1, p2, layout = (1,2))
+end
