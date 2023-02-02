@@ -1,11 +1,11 @@
 using DataFrames
 using CSV
 
-function load_max_boegl(timesteps; offset = 0, heat = false)
+function load_max_boegl(timesteps; offset = 0, heat = nothing)
     pv_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "pv_Halle18.csv"), DataFrame, header = false)
     wind_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "wind_Karholz.csv"), DataFrame, header = false)
     demand_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "demand_Industriepark.csv"), DataFrame, header = false)
-    if heat
+    if !isnothing(heat)
         heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
         heatdemand = heatdemand_data[timesteps .+ offset, 1]
     else
@@ -92,6 +92,16 @@ function load_invs(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "
         [v => mean(inv[v]) for v in keys(inv)]
     ))
     return inv, mean_inv
+end
+
+function load_ops(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))
+    op_data = CSV.read(joinpath(savepath, run_id, "operation$(n_samples)_$(scen_freq).csv"), DataFrame)
+    op = Dict(pairs(eachcol(op_data)))
+    op_data = nothing;
+    mean_op = Dict((
+        [v => mean(op[v]) for v in keys(op)]
+    ))
+    return op, mean_op
 end
 
 function load_runtime(run_id, n_samples, scen_freq; savepath = joinpath(basepath, "results"))
