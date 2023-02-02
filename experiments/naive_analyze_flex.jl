@@ -41,7 +41,7 @@ op_data = nothing;
 
 #-
 
-F_pos, F_neg = naive_flex_potential(inv, op, pv, wind, timesteps)
+F_pos, F_neg = naive_flex_potential(inv, op, pv, wind, pars, timesteps)
 
-plot(timesteps[1:end-12],F_pos)
+plot(timesteps[2:end-12],F_pos[2:end])
 plot(F_neg)
