@@ -22,24 +22,5 @@ end
 plot(F_range, costs)
 savefig(joinpath(basepath, paper_plots, "baseline_costs_F.jl"))
 #-
-n_samples = [collect(15:5:35); collect(40:10:100)]
-run_id = "naive_flex/2023-01-18"
-# select F for further exploration
-for (i, F) in enumerate(F_range)
-    costs_flex = []
-    append!(costs_flex, costs[i])
-    for ns in n_samples
-        c = load_costs(run_id, "$ns_F")
-        append!(costs_flex, c)
-    end
-end
-plot([[0.];n_samples], costs_flex)
 
-#-
-invs = []
-for ns in n_samples
-    inv_data = CSV.read(joinpath(basepath, results, run_id, "inv$(ns)_5000.0.csv"), DataFrame)
-    inv = Dict(pairs(eachcol(inv_data)))
-    inv_data = nothing;
-    append!(invs, [inv])
-end
+# also plot investments(F)
