@@ -10,7 +10,7 @@ using Random
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
-function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = nothing, invs = nothing, F_pos = nothing, F_neg = nothing)
+function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = nothing, fixed_invs = nothing, F_pos = nothing, F_neg = nothing)
     t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset
     recovery_time = pars[:recovery_time]
     delta_t = scen_freq - recovery_time
@@ -30,8 +30,8 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
         fix!(decision_by_name(sp, 1, :u_heat_storage), 0.)
     end
     set_silent(sp)
-    if !isnothing(invs)
-        fix_investment!(sp, invs)
+    if !isnothing(fixed_invs)
+        fix_investment!(sp, fixed_invs)
     end
     println("Model setup and instantiation performed in $(time() - stime) seconds")
     stime = time()
@@ -39,7 +39,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     runtime = time() - stime
     println("Model optimized in $runtime seconds")
     lock(savefile_lock)
-    if !isnothing(savefiles)
+    if !isnothing(savefiles) # TODO turn this into an assert at the start of the function.
         if :scen in keys(savefiles)
             CSV.write(savefiles[:scen], DataFrame([s.data for s in scens]), append = true)
         end

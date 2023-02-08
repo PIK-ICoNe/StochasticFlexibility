@@ -3,6 +3,13 @@
 #=
 In this experiment we analyze investment decision's sensitivity to sampling.
 =#
+
+debug = false
+if ARGS[1] == "debug"
+    debug = true
+end
+    
+
 basepath = realpath(joinpath(@__DIR__, ".."))
 
 using Pkg
@@ -21,6 +28,9 @@ warm_up()
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
 timesteps = 1:24*365
+
+debug && timetsteps = 1:10
+
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat=true);
 
 #= 
@@ -35,6 +45,11 @@ savepath = joinpath(basepath, results, run_id)
 
 n_samples = [collect(15:5:35); collect(40:10:100)]
 scen_freq = 24*4:48:24*14
+
+debug && n_samples = [2, 4]
+debug && scen_freq = [3, 4]
+# More work for the debug run.
+
 sample_param = []
 for n in n_samples
     for s in scen_freq

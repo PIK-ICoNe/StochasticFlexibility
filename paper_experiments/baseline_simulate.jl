@@ -31,7 +31,7 @@ Threads.@threads for F in F_range
     bkg_investments = get_investments(sp_bkg)
     bkg_operations = get_operation(sp_bkg)
     CSV.write(joinpath(basepath, "results//bkg", "investments_bkg_$F.csv"), DataFrame(bkg_investments), append = false)
-    CSV.write(joinpath(basepath, "results//bkg", "cost_bkg_$F.csv"), Tables.table([cost_bkg]), header = ["Objective value"])
+    CSV.write(joinpath(basepath, "results//bkg", "cost_bkg_$F.csv"), Tables.table([cost_bkg]), header = ["Objective value"], append = false)
     CSV.write(joinpath(basepath, "results//bkg", "op_bkg_$F.csv"), DataFrame(bkg_operations), append = false)
 end
 #-
