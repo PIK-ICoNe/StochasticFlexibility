@@ -453,5 +453,8 @@ function get_all_data(sp)
     op_d = get_operation(sp)
     n = length(scenarios(sp))
     rec_d = [get_recovery(sp, i) for i in 1:n]
-    return Dict((:inv => inv_d, :op => op_d, :rec => rec_d))
+    scen_d = [Dict((:probability => s.probability, :t_xi => s.data[:t_xi], 
+        :F_xi => s.data[:F_xi], :s_xi => s.data[:s_xi])) for s in scenarios(sp)]
+    params = merge(sp.stages[1].parameters, sp.stages[2].parameters)
+    return Dict((:inv => inv_d, :op => op_d, :rec => rec_d, :scen => scen_d, :params => params))
 end
