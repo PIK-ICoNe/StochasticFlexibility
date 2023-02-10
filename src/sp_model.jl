@@ -380,12 +380,26 @@ function fix_operation!(sp, operation, number_of_hours)
 end
 
 function unfix_operation!(sp, operation, number_of_hours)
-    for var_sym in keys(first_stage_dict)
+    for var_sym in keys(operation)
         for i in 1:number_of_hours
             unfix(decision_by_name(sp, 1, string(var_sym)*"[$i]"))
         end
     end
 end
+
+get_recovery(sp, n)= Dict((
+    :pv_cur => value.(sp[2,:pv_cur2], n),
+    :wind_cur => value.(sp[2,:wind_cur2], n),
+    :gci => value.(sp[2,:gci2], n),
+    :gco => value.(sp[2,:gco2], n),
+    :sto_to_bus => value.(sp[2,:sto_to_bus], n),
+    :sto_from_bus => value.(sp[2,:sto_from_bus2], n),
+    :sto_soc => value.(sp[2,:sto_soc2], n),
+    :heat_sto_to_bus => value.(sp[2,:heat_sto_to_bus2], n),
+    :heat_sto_from_bus => value.(sp[2,:heat_sto_from_bus2], n),
+    :heat_sto_soc => value.(sp[2,:heat_sto_soc2], n),
+    :flow_energy2heat => value.(sp[2,:flow_energy2heat2], n)
+))
 
 """
 Get array of penalties taken in each scenario. 
@@ -429,7 +443,15 @@ function get_total_investment(sp)
     return total_inv
 end
 
-function first_stage_cost(sp)
+#=function first_stage_cost(sp)
     
     return nothing
+end=#
+
+function get_all_data(sp)
+    inv_d = get_investments(sp)
+    op_d = get_operation(sp)
+    n = length(scenarios(sp))
+    rec_d = [get_recovery(sp, i) for i in 1:n]
+    return Dict((:inv => inv_d, :op => op_d, :rec => rec_d))
 end
