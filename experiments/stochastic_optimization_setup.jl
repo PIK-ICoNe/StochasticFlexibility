@@ -1,5 +1,6 @@
 using DataFrames
 using CSV
+using JSON
 using Tables
 using Clp
 using Statistics;
@@ -10,7 +11,7 @@ using Random
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
-function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = false, fixed_invs = nothing, F_pos = nothing, F_neg = nothing, savepath = nothing)
+function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = false, savepath = nothing, fixed_invs = nothing, F_pos = nothing, F_neg = nothing)
     if savefiles
         @assert !isnothing(savepath)
     end
@@ -44,8 +45,8 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     println("Model optimized in $runtime seconds")
     lock(savefile_lock)
     if savefiles
-        opt_params = Dict((:F_min = F_min, :F_max = F_max, :t_max_offset = t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
-            :F_guar_pos => F_pos, F_guar_neg => F_neg))
+        opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
+            :F_guar_pos => F_pos, :F_guar_neg => F_neg))
         all_data = get_all_data(sp)
         all_data = merge(all_data, opt_params, Dict((:runtime => runtime)))
         open(joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json"), "w") do f
