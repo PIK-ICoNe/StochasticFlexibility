@@ -241,7 +241,7 @@ function plot_scenario_distribution(scenarios; by_sign = false)
     end 
 end
 
-function plot_flex_sources(sp_data, op, invs, pv, wind, COP; timesteps = 1:24*365)
+function plot_flex_sources(sp_data, pv, wind; timesteps = 1:24*365)
     pos_cur = sp_data["op"]["pv_cur"][timesteps[begin:end-1]] .+ sp_data["op"]["wind_cur"][timesteps[begin:end-1]]
     neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data["inv"]["u_pv"] .- wind[timesteps[begin:end-1]].*sp_data["inv"]["u_wind"]
     pos_sto = sp_data["op"]["sto_soc"][timesteps[begin+1:end]]
