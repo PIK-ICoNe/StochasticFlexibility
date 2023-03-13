@@ -1,85 +1,79 @@
 using Plots;gr()
 using SankeyPlots
 
-function plot_results(sp, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[], inv_dict = nothing)
-    if !isnothing(inv_dict)
-        u_pv = inv_dict[:u_pv]
-        u_wind = inv_dict[:u_wind]
-        u_storage = inv_dict[:u_storage]
-        u_heatpump = inv_dict[:u_heatpump]
-        u_heat_storage = inv_dict[:u_heat_storage]
-    else
-        u_pv = value.(sp[1, :u_pv])
-        u_wind = value.(sp[1, :u_wind])
-        u_storage = value.(sp[1, :u_storage])
-        u_heatpump = value.(sp[1, :u_heatpump])
-        u_heat_storage = value.(sp[1, :u_heat_storage])
-    end
+function plot_results(sp_data, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=["gci", "gco"], storage_vars=[])
+
+    u_pv = sp_data["inv"]["u_pv"]
+    u_wind = sp_data["inv"]["u_wind"]
+    u_storage = sp_data["inv"]["u_storage"]
+    u_heatpump = sp_data["inv"]["u_heatpump"]
+    u_heat_storage = sp_data["inv"]["u_heat_storage"]
+    
     plt_sto = plot(; legend = :outertopright)
     plt_invest = plot(; legend = :outertopright)
     plt = plot(; legend = :outertopright)
     plot!(plt_invest, plot_window, pv[plot_window] .* u_pv, label="PV")
     plot!(plt_invest, plot_window, w[plot_window] .* u_wind, label="Wind")
     plot!(plt_invest, plot_window, el_d[plot_window], label="Electrical demand")
-    t_xi = scenarios(sp)[s].data.t_xi
-    recovery_time = sp.stages[2].parameters[:recovery_time]
+    t_xi = sp_data["scen"][s]["t_xi"]
+    recovery_time = sp_data["params"]["recovery_time"]
 
-    stor_charge = value.(sp[1, :sto_soc])
+    stor_charge = sp_data["op"]["sto_soc"]
     plot!(plt_sto, plot_window, stor_charge[plot_window], label="global storage charge")
     if t_xi in plot_window
-        plot!(plt_sto, (t_xi):(t_xi+recovery_time), value.(sp[2, :sto_soc2],s), label=string("stochastic storage charge")*string(s), linestyle=:dash, linewidth=2)
+        plot!(plt_sto, (t_xi):(t_xi+recovery_time), sp_data["rec"][s]["sto_soc2"], label=string("stochastic storage charge")*string(s), linestyle=:dash, linewidth=2)
     end
 
     for var in el_balance_vars
-        plot!(plt, plot_window, value.(sp[1, var])[plot_window], label=string(var))
+        plot!(plt, plot_window, sp_data["op"][var][plot_window], label=var)
         if t_xi in plot_window
-            var2 = Symbol(string(var)*"2")
-            plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), value.(sp[2, var2], s), label=string(var)*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
+            var2 = var*"2"
+            plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), sp_data["rec"][s][var2], label=var*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
         end
     end
     return plot(plt_invest, plt, plt_sto, layout = (3,1))
 end
 
-function plot_heat_layer(sp, heatdemand; plot_window = 1:length(heatdemand), s = 1, inv_dict = 0)
+function plot_heat_layer(sp_data, heatdemand; plot_window = 1:length(heatdemand), s = 1)
     plt_heat = plot(; legend = :outertopright)
-    COP = sp.stages[2].parameters[:COP]
+    COP = sp_data["params"]["COP"]
 
     plot!(plt_heat, plot_window, heatdemand[plot_window], label = "heat demand")
-    plot!(plt_heat, plot_window, COP*value.(sp[1, :flow_energy2heat])[plot_window], label = "heatpump")
-    plot!(plt_heat, plot_window, value.(sp[1, :heat_sto_soc])[plot_window], label = "heat storage SOC")
-    plot!(plt_heat, plot_window, value.(sp[1, :heat_sto_to_bus])[plot_window]-value.(sp[1, :heat_sto_from_bus])[plot_window], label = "heat storage use")
-    # plot!(plt_heat, (t_xi+1):(t_xi+1+recovery_time), COP*value.(sp[2, :flow_energy2heat2], s), label = "heatpump$s", linestyle=:dash, linewidth=2)
-    # plot!(plt_heat, (t_xi+1):(t_xi+1+recovery_time), value.(sp[2, :heat_sto_in2], s)-value.(sp[2, :heat_sto_out2], s), label = "heat storage use $s", linestyle=:dash, linewidth=2)
+    plot!(plt_heat, plot_window, COP*sp_data["op"]["flow_energy2heat"][plot_window], label = "heatpump")
+    plot!(plt_heat, plot_window, sp_data["op"]["heat_sto_soc"][plot_window], label = "heat storage SOC")
+    plot!(plt_heat, plot_window, sp_data["op"]["heat_sto_to_bus"][plot_window]-sp_data["op"]["heat_sto_from_bus"][plot_window], label = "heat storage use")
+    # plot!(plt_heat, (t_xi+1):(t_xi+1+recovery_time), COP*sp_data["rec"][s]["flow_energy2heat2"], label = "heatpump$s", linestyle=:dash, linewidth=2)
+    # plot!(plt_heat, (t_xi+1):(t_xi+1+recovery_time), sp_data["rec"][s]["heat_sto_to_bus2"]-sp_data["rec"][2]["heat_sto_from_bus2"], label = "heat storage use $s", linestyle=:dash, linewidth=2)
 
 end
 
-function plot_raw_heat_layer(sp, heatdemand; plot_span = 1:length(heatdemand), s = 1, inv_dict = 0)
+function plot_raw_heat_layer(sp_data, heatdemand; plot_span = 1:length(heatdemand), s = 1)
     plt_heat = plot(; legend = :outertopright)
-    COP = sp.stages[2].parameters[:COP]
+    COP = sp_data["params"]["COP"]
 
     #plot!(plt_heat, plot_span, heatdemand[plot_span], label = "heat demand")
     #plot!(plt_heat, plot_span, COP*value.(sp[1, :flow_energy2heat])[plot_span], label = "heatpump")
-    plot!(plt_heat, plot_span, value.(sp[1, :heat_sto_soc])[plot_span], label = "heat storage SOC")
-    plot!(plt_heat, plot_span, value.(sp[1, :heat_sto_to_bus])[plot_span], label = "heat storage to bus")
-    plot!(plt_heat, plot_span, value.(sp[1, :heat_sto_from_bus])[plot_span], label = "heat storage from bus")
+    plot!(plt_heat, plot_span, sp_data["op"]["heat_sto_soc"][plot_span], label = "heat storage SOC")
+    plot!(plt_heat, plot_span, sp_data["op"]["heat_sto_to_bus"][plot_span], label = "heat storage to bus")
+    plot!(plt_heat, plot_span, sp_data["op"]["heat_sto_from_bus"][plot_span], label = "heat storage from bus")
     # plot!(plt_heat, (t_xi+1):(t_xi+1+recovery_time), COP*value.(sp[2, :flow_energy2heat2], s), label = "heatpump$s", linestyle=:dash, linewidth=2)
     # plot!(plt_heat, (t_xi+1):(t_xi+1+recovery_time), value.(sp[2, :heat_sto_in2], s)-value.(sp[2, :heat_sto_out2], s), label = "heat storage use $s", linestyle=:dash, linewidth=2)
 
 end
 
-function plot_recovery_window_deviation(sp; s = 1)
+function plot_recovery_window_deviation(sp_data; s = 1)
     plt_gc = plot()
     plt_sto = plot()
-    t_xi = scenarios(sp)[s].data.t_xi
-    recovery_time = sp.stages[2].parameters[:recovery_time]
-    plot!(plt_gc, value.(sp[1, :flow_energy2heat])[t_xi+1:t_xi+1+recovery_time], label = "global flow_energy2heat")
-    plot!(plt_gc, value.(sp[2, :flow_energy2heat2], s), label = "stochastic flow_energy2heat")
-    plot!(plt_gc, -value.(sp[1, :gci])[t_xi+1:t_xi+1+recovery_time]+value.(sp[2, :gci2], s), label = "global grid connection use")
-    plot!(plt_gc, value.(sp[2, :gco2], s) - value.(sp[1, :gco])[t_xi+1:t_xi+1+recovery_time], xlabel = "time after the event, h", label = "stochastic grid connection use")
+    t_xi = sp_data["scen"][s]["t_xi"]
+    recovery_time = sp_data["params"]["recovery_time"]
+    plot!(plt_gc, COP*sp_data["op"]["flow_energy2heat"][t_xi+1:t_xi+1+recovery_time], label = "global flow_energy2heat")
+    plot!(plt_gc, COP*sp_data["rec"][s]["flow_energy2heat2"], label = "stochastic flow_energy2heat")
+    plot!(plt_gc, -sp_data["op"]["gci"][t_xi+1:t_xi+1+recovery_time]+sp_data["op"]["gco"][t_xi+1:t_xi+1+recovery_time], label = "global grid connection use")
+    plot!(plt_gc, sp_data["rec"][s]["gco2"] - sp_data["rec"][s]["gci2"], xlabel = "time after the event, h", label = "stochastic grid connection use")
     #plot!(plt_gc, -value.(sp[1, :gco])[t_xi+1:t_xi+recovery_time]+value.(sp[2, :gco2], s), xlabel = "time after the event, h", label = "gco2-gco")
     
-    stor_charge = value.(sp[1, :sto_soc])[t_xi+1:t_xi+1+recovery_time]
-    stor_charge2 = value.(sp[2, :sto_soc2], s)
+    stor_charge = sp_data["op"]["sto_soc"][t_xi+1:t_xi+1+recovery_time]
+    stor_charge2 = sp_data["rec"][s]["sto_soc2"]
     
     plot!(plt_sto, stor_charge2-stor_charge, label = "soc2-soc")
 
@@ -120,10 +114,10 @@ function plot_outcome(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_end=2)
     plot(plt_gb, plt_h_soc, plt_soc, plt_e2h, layout=(4,1))
 end
 
-function plot_scenario_debug(sp, s; window_start=-2, window_end=2, vars = ["gci", "gco", "sto_soc", "heat_sto_soc", "flow_energy2heat"])
+function plot_scenario_debug(sp_data, s; window_start=-2, window_end=2, vars = ["gci", "gco", "sto_soc", "heat_sto_soc", "flow_energy2heat"])
 
-    t_xi = scenarios(sp)[s].data.t_xi
-    recovery_time = sp.stages[2].parameters[:recovery_time]
+    t_xi = sp_data["scen"][s]["t_xi"]
+    recovery_time = sp_data["params"]["recovery_time"]
 
     recovery_window = t_xi:t_xi+recovery_time
     plot_window = t_xi+window_start:t_xi+recovery_time+window_end
@@ -132,11 +126,10 @@ function plot_scenario_debug(sp, s; window_start=-2, window_end=2, vars = ["gci"
 
     for var in vars
         plt_var = plot(title=var, legend=:outertopright)
-        symbol_base_case = Symbol(var) # e.g. :sto_soc
-        symbol_event_case = Symbol(var * "2") # e.g. :sto_soc2
 
-        plot!(plt_var, plot_window, value.(sp[1, symbol_base_case][plot_window]), label = "Base Case")
-        plot!(plt_var, recovery_window, value.(sp[2, symbol_event_case], s), label = "Event")
+
+        plot!(plt_var, plot_window, sp_data["op"][var][plot_window], label = "Base Case")
+        plot!(plt_var, recovery_window, sp_data["rec"][s][var*"2"][plot_window], label = "Event")
     
         push!(plots, plt_var)
     end
@@ -144,19 +137,18 @@ function plot_scenario_debug(sp, s; window_start=-2, window_end=2, vars = ["gci"
     plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
 end
 
-function plot_base_case_raw(sp; plot_window = nothing, vars = ["gci", "gco", "sto_soc", "heat_sto_soc", "flow_energy2heat"])
+function plot_base_case_raw(sp_data; plot_window = nothing, vars = ["gci", "gco", "sto_soc", "heat_sto_soc", "flow_energy2heat"])
 
     if isnothing(plot_window)
-        plot_window = 1:length(sp[1, :gci])
+        plot_window = 1:length(sp_data["op"]["gci"])
     end
 
     plots = []
 
     for var in vars
         plt_var = plot(title=var, legend=:none)
-        symbol_base_case = Symbol(var) # e.g. :sto_soc
 
-        plot!(plt_var, plot_window, value.(sp[1, symbol_base_case][plot_window]))
+        plot!(plt_var, plot_window, sp_data["op"][var][plot_window])
     
         push!(plots, plt_var)
     end
@@ -249,15 +241,14 @@ function plot_scenario_distribution(scenarios; by_sign = false)
     end 
 end
 
-function plot_flex_sources(op, invs, pv, wind, COP; timesteps = 1:24*365)
-    #@constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP >= F_pos)
-    #@constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_sto_soc[t+1] - u_heat_storage)/COP <= F_neg)
-    pos_cur = op[:pv_cur][timesteps[begin:end-1]] .+ op[:wind_cur][timesteps[begin:end-1]]
-    neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*invs[:u_pv] .- wind[timesteps[begin:end-1]].*invs[:u_wind]
-    pos_sto = op[:sto_soc][timesteps[begin+1:end]]
-    neg_sto = pos_sto .- invs[:u_storage]
-    pos_heat_sto = op[:heat_sto_soc][timesteps[begin+1:end]]/COP
-    neg_heat_sto = pos_heat_sto .- invs[:u_heat_storage]/COP
+function plot_flex_sources(sp_data, pv, wind; timesteps = 1:24*365)
+    pos_cur = sp_data["op"]["pv_cur"][timesteps[begin:end-1]] .+ sp_data["op"]["wind_cur"][timesteps[begin:end-1]]
+    neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data["inv"]["u_pv"] .- wind[timesteps[begin:end-1]].*sp_data["inv"]["u_wind"]
+    pos_sto = sp_data["op"]["sto_soc"][timesteps[begin+1:end]]
+    neg_sto = pos_sto .- sp_data["inv"]["u_storage"]
+    COP = COP = sp_data["params"]["COP"]
+    pos_heat_sto = sp_data["op"]["heat_sto_soc"][timesteps[begin+1:end]]/COP
+    neg_heat_sto = pos_heat_sto .- sp_data["inv"]["u_heat_storage"]/COP
     #=plt = plot(layout = (1,2))
     plot!(plt[1], pos_cur, fill = (0, 0.5))
     plot!(plt[1], pos_sto, fill = (0, 0.5))

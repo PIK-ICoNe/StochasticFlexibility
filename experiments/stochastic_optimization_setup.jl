@@ -1,5 +1,6 @@
 using DataFrames
 using CSV
+using JSON
 using Tables
 using Clp
 using Statistics;
@@ -10,9 +11,13 @@ using Random
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
-function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = nothing, fixed_invs = nothing, F_pos = nothing, F_neg = nothing)
+function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = false, savepath = nothing, fixed_invs = nothing, fixed_operation = nothing, F_pos = nothing, F_neg = nothing)
+    if savefiles
+        @assert !isnothing(savepath)
+    end
     t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset
     recovery_time = pars[:recovery_time]
+    @assert scen_freq > recovery_time
     delta_t = scen_freq - recovery_time
     pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1)
     n = round(Int, n_samples * pars[:event_per_scen])
@@ -25,6 +30,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
         es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
     end
     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+    # Prevent investment in the heat components if there is no heat demand
     if maximum(heatdemand) == 0.
         fix!(decision_by_name(sp, 1, :u_heatpump), 0.)
         fix!(decision_by_name(sp, 1, :u_heat_storage), 0.)
@@ -33,25 +39,22 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     if !isnothing(fixed_invs)
         fix_investment!(sp, fixed_invs)
     end
+    if !isnothing(fixed_operation)
+        fix_operation!(sp, fixed_operation)
+    end
     println("Model setup and instantiation performed in $(time() - stime) seconds")
     stime = time()
     optimize!(sp)
     runtime = time() - stime
     println("Model optimized in $runtime seconds")
     lock(savefile_lock)
-    if !isnothing(savefiles) # TODO turn this into an assert at the start of the function.
-        if :scen in keys(savefiles)
-            CSV.write(savefiles[:scen], DataFrame([s.data for s in scens]), append = true)
-        end
-        if :inv in keys(savefiles)
-            investments = get_investments(sp)
-            CSV.write(savefiles[:inv], DataFrame(investments), append = true)
-        end
-        if :costs in keys(savefiles)
-            CSV.write(savefiles[:costs], Tables.table([objective_value(sp)]), append = true)
-        end
-        if :runtime in keys(savefiles)
-            CSV.write(savefiles[:runtime], Tables.table([runtime]), append = true)
+    if savefiles
+        opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
+            :F_guar_pos => F_pos, :F_guar_neg => F_neg))
+        all_data = get_all_data(sp)
+        all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+        open(joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json"), "w") do f
+            JSON.print(f,all_data)
         end
     end
     unlock(savefile_lock)
@@ -82,6 +85,10 @@ function warm_up()
     println("Warm up performed in $(time() - stime) seconds")
 end
 
+"""
+Get optimized background model with fixed investment decision read from file.
+"""
+# TODO revise, add asserts or provide savepath
 function get_background_model(pv, wind, demand, heatdemand, pars)
     stime = time()
     bkg = CSV.read(joinpath(basepath, "results/bkg", "investments_bkg.csv"), DataFrame)

@@ -1,0 +1,1 @@
+FWDSSH='ssh -L8888:localhost:18586 ekatzolo@login02.pik-potsdam.de -N'

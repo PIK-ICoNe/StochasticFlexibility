@@ -37,7 +37,9 @@ default_es_pars = Dict((
     :sto_ef_dis => 0.95,
     :penalty => 10000.,
     :event_per_scen => 1,
-    :max_sto_flow => 0.2
+    :max_sto_flow => 0.2,
+    :max_pv => 10^3,
+    :max_wind => 10^3
 ))
 
 """
@@ -127,6 +129,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 event_per_scen = event_per_scen
                 # Euro
                 inv_budget = p[:inv_budget] # Make the problem bounded
+                max_pv = p[:max_pv]
+                max_wind = p[:max_wind]
                 regularize_lossy_flows = reg_lossy_flows
             end
             lifetime_factor = asset_lifetime * 365 * 24 / number_of_hours
@@ -134,6 +138,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             @decision(model, u_pv >= 0)
             @decision(model, u_wind >= 0)
             @decision(model, u_storage >= 0)
+
+            @constraint(model, u_pv <= max_pv)
+            @constraint(model, u_wind <= max_wind)
 
             # Curtailment
             @decision(model, 0 <= pv_cur[t in 1:number_of_hours] <= debug_cap)
@@ -380,12 +387,26 @@ function fix_operation!(sp, operation, number_of_hours)
 end
 
 function unfix_operation!(sp, operation, number_of_hours)
-    for var_sym in keys(first_stage_dict)
+    for var_sym in keys(operation)
         for i in 1:number_of_hours
             unfix(decision_by_name(sp, 1, string(var_sym)*"[$i]"))
         end
     end
 end
+
+get_recovery(sp, n)= Dict((
+    :pv_cur2 => value.(sp[2,:pv_cur2], n),
+    :wind_cur2 => value.(sp[2,:wind_cur2], n),
+    :gci2 => value.(sp[2,:gci2], n),
+    :gco2 => value.(sp[2,:gco2], n),
+    :sto_to_bus2 => value.(sp[2,:sto_to_bus], n),
+    :sto_from_bus2 => value.(sp[2,:sto_from_bus2], n),
+    :sto_soc2 => value.(sp[2,:sto_soc2], n),
+    :heat_sto_to_bus2 => value.(sp[2,:heat_sto_to_bus2], n),
+    :heat_sto_from_bus2 => value.(sp[2,:heat_sto_from_bus2], n),
+    :heat_sto_soc2 => value.(sp[2,:heat_sto_soc2], n),
+    :flow_energy2heat2 => value.(sp[2,:flow_energy2heat2], n)
+))
 
 """
 Get array of penalties taken in each scenario. 
@@ -429,7 +450,23 @@ function get_total_investment(sp)
     return total_inv
 end
 
-function first_stage_cost(sp)
+function get_total_investment(data_dict::Dict{String, Any})    
+    total_inv = sum([data_dict["params"]["c_"*var]]*data_dict["inv"]["u_"*var] 
+        for var in ["pv","wind","storage","heat_storage","heatpump"])
+    return total_inv[1]
+end
+#=function first_stage_cost(sp)
     
     return nothing
+end=#
+
+function get_all_data(sp)
+    inv_d = get_investments(sp)
+    op_d = get_operation(sp)
+    n = length(scenarios(sp))
+    rec_d = [get_recovery(sp, i) for i in 1:n]
+    scen_d = [Dict((:probability => s.probability, :t_xi => s.data[:t_xi], 
+        :F_xi => s.data[:F_xi], :s_xi => s.data[:s_xi])) for s in scenarios(sp)]
+    params = merge(sp.stages[1].parameters, sp.stages[2].parameters)
+    return Dict((:inv => inv_d, :op => op_d, :rec => rec_d, :scen => scen_d, :params => params))
 end
