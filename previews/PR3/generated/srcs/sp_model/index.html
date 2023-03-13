@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Model · Stochastic Flexibility Optimization</title><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Stochastic Flexibility Optimization</a></span></div><form class="docs-search" action="../../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../../">Flexibility analysis using Stochastic Programing</a></li><li><span class="tocitem">Manuscripts</span><ul><li><a class="tocitem" href="../../flexibility_by_stochastic_programing/">Main Story</a></li></ul></li><li><span class="tocitem">Sources</span><ul><li class="is-active"><a class="tocitem" href>Model</a></li><li><a class="tocitem" href="../evaluation_utils/">Evaluation</a></li><li><a class="tocitem" href="../plot_utils/">Plotting</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Sources</a></li><li class="is-active"><a href>Model</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Model</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/PIK-ICoNe/StochasticFlexibility/blob/main/docs/src/generated/srcs/sp_model.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><pre><code class="language-julia hljs">using StochasticPrograms
+using Random
+using Distributions
+
+#
+&quot;&quot;&quot;
+Default values of system parameters.
+- c_i - price of buying energy from the grid, Euro/kW
+- c_o - price of selling energy to the grid, Euro/kW
+- asset_lifetime - expected lifetime of a component in years. Needed to bring investment and operational costs to the same timescale
+- c_pv, c_wind - price of installing pv and wind components per kW peak, Euro/kWp
+- c_storage - price of storage, Euro/kW
+- c_heat_storage - TODO: heat layer units
+- c_heatpump
+- inv_budget - maximum investment budget, Euro
+- recovery_time - time after the event, in which the system is allowed to deviate from background optimal schedule, h
+- COP - heatpump efficiency coefficient
+- heat_losses - losses in the heat storage
+- penalty - price of non-delivery of flexibility, Euro
+&quot;&quot;&quot;
+default_es_pars = Dict((
+    :c_i =&gt; .3,
+    :c_o =&gt; .05,
+    :asset_lifetime =&gt; 10.,
+    :c_pv =&gt; 700.,
+    :c_wind =&gt; 2000.,
+    :c_storage =&gt; 600.,
+    :c_heat_storage =&gt; 30.,
+    :c_heatpump =&gt; 20.,
+    :inv_budget =&gt; 500000000.,
+    :recovery_time =&gt; 12,
+    :COP =&gt; 3.5,
+    :feedincap =&gt; 10^7,
+    :heat_losses =&gt; 0.2,
+    :heat_eff =&gt; 0.9,
+    :sto_ef_ch =&gt; 0.95,
+    :sto_ef_dis =&gt; 0.95,
+    :penalty =&gt; 10000.,
+    :event_per_scen =&gt; 1,
+    :max_sto_flow =&gt; 0.2,
+    :max_pv =&gt; 10^3,
+    :max_wind =&gt; 10^3
+))
+
+&quot;&quot;&quot;
+Draw a sample of n scenarios
+&quot;&quot;&quot;
+function simple_flex_sampler(n, F_max, t_max; F_min = 0.)
+    [@scenario t_xi = rand(1:t_max) s_xi = rand([-1, 1]) F_xi = F_min + rand() * (F_max - F_min) probability = 1/n
+        for i in 1:n]
+end
+
+&quot;&quot;&quot;
+Exponentially distributed inter event times, with the inter event time counting
+from after the recovery time. Average inter event time should be delta_t + recovery_time + 1
+&quot;&quot;&quot;
+function poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max; F_min = 0.)
+    @assert t_max &gt; delta_t
+    times = []
+    t = 1
+    interval_distribution = Exponential(delta_t)
+    while length(times) &lt; n
+        t += recovery_time + 1
+        t += round(Int, rand(interval_distribution))
+        push!(times, t)
+    end
+    times = times .% t_max .+ 1
+    [@scenario t_xi = t s_xi = rand([-1, 1]) F_xi = F_min + rand() * (F_max - F_min) probability = 1/n
+    for t in times]
+end
+
+
+&quot;&quot;&quot;
+Get an array with a single pseudo scenario with no flexiblity.
+This is useful for optimizing the system as if no flexibilty was introduced.
+&quot;&quot;&quot;
+function no_flex_pseudo_sampler()
+    [@scenario t_xi = 1 s_xi = 1 F_xi = 0. probability = 1.
+    ,]
+end
+
+&quot;&quot;&quot;
+Draw a sample of n scenarios which have different probaility at day and night
+&quot;&quot;&quot;
+
+function timedependent_flex_sampler(n, F_max, t_day, t_night, prob_day, prob_night)
+    sday = [@scenario t_xi = rand(t_day) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = prob_day/n
+        for i in 1:(n/2)]
+    snight = [@scenario t_xi = rand(t_night) s_xi = rand([-1, 1]) F_xi = rand() * F_max probability = prob_night/n
+        for i in 1:(n/2)]
+    return vcat(sday,snight)
+end
+
+&quot;&quot;&quot;
+Define energy system.
+Parameters:
+- pv, wind - weather timeseries
+- demand, heatdemand - demand timeseries
+- p - dictionary with system parameters, such as component costs, losses and recovery time window
+- regularized - bool, if true, finite penalty is used
+&quot;&quot;&quot;
+function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars, regularized = true, debug_cap = 10^9, reg_lossy_flows = 0.0000001, override_no_event_per_scen = false, guaranteed_flex = false, F_pos = 1000., F_neg = -1000.)
+    number_of_hours = minimum([length(pv), length(demand), length(wind)])
+    if override_no_event_per_scen
+        event_per_scen = 1
+    else
+        event_per_scen = p[:event_per_scen]
+    end
+    energy_system = @stochastic_model begin
+        @stage 1 begin
+            @parameters begin</code></pre><p>Expected lifetime of components, years</p><pre><code class="language-julia hljs">                asset_lifetime = p[:asset_lifetime]</code></pre><p>Costs in Euro/1kWp</p><pre><code class="language-julia hljs">                c_pv = p[:c_pv]
+                c_wind = p[:c_wind]
+                c_storage = p[:c_storage]
+                c_i = p[:c_i]
+                c_o = p[:c_o]
+                c_heat_storage = p[:c_heat_storage]
+                c_heatpump = p[:c_heatpump]
+                COP = p[:COP]
+                heat_losses = p[:heat_losses]
+                heat_eff = p[:heat_eff]
+                sto_ef_ch = p[:sto_ef_ch] # efficiency of storage charge (from bus)
+                sto_ef_dis = p[:sto_ef_dis] # efficiency of storage discharge
+                feedincap = p[:feedincap]
+                max_sto_flow = p[:max_sto_flow] # relative cap of charge/discharge in one hour
+                event_per_scen = event_per_scen</code></pre><p>Euro</p><pre><code class="language-julia hljs">                inv_budget = p[:inv_budget] # Make the problem bounded
+                max_pv = p[:max_pv]
+                max_wind = p[:max_wind]
+                regularize_lossy_flows = reg_lossy_flows
+            end
+            lifetime_factor = asset_lifetime * 365 * 24 / number_of_hours</code></pre><p>Component units to be invested in, kWp</p><pre><code class="language-julia hljs">            @decision(model, u_pv &gt;= 0)
+            @decision(model, u_wind &gt;= 0)
+            @decision(model, u_storage &gt;= 0)
+
+            @constraint(model, u_pv &lt;= max_pv)
+            @constraint(model, u_wind &lt;= max_wind)</code></pre><p>Curtailment</p><pre><code class="language-julia hljs">            @decision(model, 0 &lt;= pv_cur[t in 1:number_of_hours] &lt;= debug_cap)
+            @decision(model, 0 &lt;= wind_cur[t in 1:number_of_hours] &lt;= debug_cap)
+            @constraint(model, [t in 1:number_of_hours], pv_cur[t] &lt;= u_pv * pv[t])
+            @constraint(model, [t in 1:number_of_hours], wind_cur[t] &lt;= u_wind * wind[t])</code></pre><p>Grid connection</p><pre><code class="language-julia hljs">            @decision(model, 0 &lt;= gci[t in 1:number_of_hours] &lt;= debug_cap)
+            @decision(model, 0 &lt;= gco[t in 1:number_of_hours] &lt;= debug_cap)</code></pre><p>Feedin cap</p><pre><code class="language-julia hljs">            @constraint(model, [t in 1:number_of_hours], gco[t] &lt;= feedincap)</code></pre><p>Storage model</p><pre><code class="language-julia hljs">            @decision(model, 0 &lt;= sto_to_bus[t in 1:number_of_hours] &lt;= debug_cap) # into the bus from storage
+            @decision(model, 0 &lt;= sto_from_bus[t in 1:number_of_hours] &lt;= debug_cap)
+            @decision(model, 0 &lt;= sto_soc[t in 1:number_of_hours] &lt;= debug_cap)
+            @constraint(model, [t in 1:number_of_hours-1], sto_soc[t+1] == sto_soc[t] + sto_from_bus[t] * sto_ef_ch - sto_to_bus[t] / sto_ef_dis)
+            @constraint(model, [t in 1:number_of_hours], sto_soc[t] &lt;= u_storage)
+            @constraint(model, [t in 1:number_of_hours], sto_from_bus[t] &lt;= max_sto_flow * u_storage)
+            @constraint(model, [t in 1:number_of_hours], sto_to_bus[t] &lt;= max_sto_flow * u_storage)</code></pre><p>Start and end condition</p><pre><code class="language-julia hljs">            @constraint(model, sto_soc[1] == u_storage / 2)
+            @constraint(model, sto_soc[number_of_hours] + sto_from_bus[number_of_hours] * sto_ef_ch- sto_to_bus[number_of_hours] / sto_ef_dis == sto_soc[1])</code></pre><p>Heat model</p><pre><code class="language-julia hljs">            @decision(model, u_heatpump &gt;= 0)
+            @decision(model, u_heat_storage &gt;= 0)
+            @decision(model, 0 &lt;= heat_sto_to_bus[t in 1:number_of_hours] &lt;= debug_cap) # to the heat storage
+            @decision(model, 0 &lt;= heat_sto_from_bus[t in 1:number_of_hours] &lt;= debug_cap)
+            @decision(model, 0 &lt;= heat_sto_soc[t in 1:number_of_hours] &lt;= debug_cap)
+            @decision(model, 0 &lt;= flow_energy2heat[t in 1:number_of_hours] &lt;= debug_cap)
+            @constraint(model, [t in 1:number_of_hours-1], heat_sto_soc[t+1] == heat_sto_soc[t] + heat_sto_from_bus[t] * heat_eff - heat_sto_to_bus[t] / heat_eff)
+            @constraint(model, [t in 1:number_of_hours], heat_sto_soc[t] &lt;= u_heat_storage)
+            @constraint(model, [t in 1:number_of_hours], flow_energy2heat[t] &lt;= (1/COP)*u_heatpump)</code></pre><p>Start and end condition</p><pre><code class="language-julia hljs">            @constraint(model, heat_sto_soc[1] == u_heat_storage / 2)
+            @constraint(model, heat_sto_soc[number_of_hours] + heat_sto_from_bus[number_of_hours] * heat_eff - heat_sto_to_bus[number_of_hours] / heat_eff == heat_sto_soc[1])</code></pre><p>Investment budget</p><pre><code class="language-julia hljs">            @constraint(model, inv_budget, c_pv * u_pv + c_wind * u_wind + c_storage * u_storage
+            + c_heat_storage * u_heat_storage + c_heatpump * u_heatpump &lt;= inv_budget)</code></pre><p>Energy balance</p><pre><code class="language-julia hljs">            @constraint(model, [t in 1:number_of_hours],
+            gci[t] - gco[t] + u_pv * pv[t] - pv_cur[t] + u_wind * wind[t] - wind_cur[t] - demand[t] + sto_to_bus[t] - sto_from_bus[t] - flow_energy2heat[t] == 0)</code></pre><p>Heat balance</p><pre><code class="language-julia hljs">            @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)</code></pre><p>Naive flex potential constraint</p><pre><code class="language-julia hljs">            if guaranteed_flex
+                @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP &gt;= F_pos)
+                @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_sto_soc[t+1] - u_heat_storage)/COP &lt;= F_neg)
+            end</code></pre><p>Investment costs ... ... and background operational schedule</p><pre><code class="language-julia hljs">            @objective(model, Min, (u_pv * c_pv + u_wind * c_wind + u_storage * c_storage
+            + u_heat_storage * c_heat_storage + u_heatpump * c_heatpump) / lifetime_factor
+            + c_i * sum(gci) - c_o * sum(gco) + regularize_lossy_flows * (sum(heat_sto_from_bus) + sum(heat_sto_to_bus) + sum(sto_from_bus) + sum(sto_to_bus)))
+        end
+        @stage 2 begin
+            @parameters begin
+                recovery_time = p[:recovery_time]
+                c_i = p[:c_i]
+                c_o = p[:c_o]
+                penalty = p[:penalty]
+                heat_losses = p[:heat_losses]
+                heat_eff = p[:heat_eff]
+                sto_ef_ch = p[:sto_ef_ch]
+                sto_ef_dis = p[:sto_ef_dis]
+                COP = p[:COP]
+                max_sto_flow = p[:max_sto_flow]
+                event_per_scen = event_per_scen
+                regularize_lossy_flows = reg_lossy_flows
+                feedincap = p[:feedincap]
+            end
+            @uncertain t_xi s_xi F_xi # t_xi the time of flexibility demand, s_xi - sign (±1 or 0)
+            t_xi_final = t_xi + recovery_time</code></pre><p>t<em>xi is the event time. at t</em>xi + recovery_time all variables have to match again.</p><p>Curtailment</p><pre><code class="language-julia hljs">            @recourse(model, 0 &lt;= pv_cur2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @recourse(model, 0 &lt;= wind_cur2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @constraint(model, [t in 1:1+recovery_time], pv_cur2[t] &lt;= u_pv * pv[t + t_xi - 1])
+            @constraint(model, [t in 1:1+recovery_time], wind_cur2[t] &lt;= u_wind * wind[t + t_xi - 1])
+
+            @constraint(model, pv_cur2[1 + recovery_time] == pv_cur[t_xi + recovery_time])
+            @constraint(model, wind_cur2[1 + recovery_time] == wind_cur[t_xi + recovery_time])</code></pre><p>Grid connection</p><pre><code class="language-julia hljs">            @recourse(model, 0 &lt;= gci2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @recourse(model, 0 &lt;= gco2[t in 1:1+recovery_time] &lt;= debug_cap)</code></pre><p>final time equality</p><pre><code class="language-julia hljs">            @constraint(model, gci2[1 + recovery_time] == gci[t_xi + recovery_time])
+            @constraint(model, gco2[1 + recovery_time] == gco[t_xi + recovery_time])</code></pre><p>Feedin cap</p><pre><code class="language-julia hljs">            @constraint(model, [t in 2:1+recovery_time], gco2[t] &lt;= feedincap)</code></pre><p>initial time equality is more complex if we have strict flex</p><pre><code class="language-julia hljs">            if ! regularized
+                @constraint(model, strict_flex_in, gci2[1] == gci[t_xi])
+                @constraint(model, strict_flex_out, gco2[1] == gco[t_xi])
+            end
+
+            # Utility variables to linearize min|gci[t_xi]-gci2[1]|
+            @recourse(model, 0 &lt;= gi1 &lt;= debug_cap)
+            @recourse(model, 0 &lt;= gi2 &lt;= debug_cap)
+            @constraint(model, gci2[1]-gci[t_xi] == gi1-gi2)
+            @recourse(model, 0 &lt;= go1 &lt;= debug_cap)
+            @recourse(model, 0 &lt;= go2 &lt;= debug_cap)
+            #@recourse(model, penalty_taken)
+            #@constraint(model, penalty_taken == gi1 + gi2 + go1 + go2)
+
+            @constraint(model, gco2[1]-gco[t_xi] == go1-go2)</code></pre><p>Storage model</p><pre><code class="language-julia hljs">            @recourse(model, 0 &lt;= sto_to_bus2[t in 1:1+recovery_time] &lt;= debug_cap) # into the bus from storage
+            @recourse(model, 0 &lt;= sto_from_bus2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @recourse(model, 0 &lt;= sto_soc2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @constraint(model, [t in 1:1+recovery_time-1], sto_soc2[t+1] == sto_soc2[t] + sto_from_bus2[t] * sto_ef_ch - sto_to_bus2[t] / sto_ef_dis)
+            @constraint(model, [t in 1:1+recovery_time], sto_soc2[t] &lt;= u_storage)
+            @constraint(model, [t in 1:1+recovery_time], sto_from_bus2[t] &lt;= max_sto_flow * u_storage)
+            @constraint(model, [t in 1:1+recovery_time], sto_to_bus2[t] &lt;= max_sto_flow * u_storage)</code></pre><p>Start and end condition</p><pre><code class="language-julia hljs">            @constraint(model, sto_soc2[1] == sto_soc[t_xi])
+            @constraint(model, sto_soc2[1 + recovery_time] == sto_soc[t_xi + recovery_time])
+            @constraint(model,  sto_from_bus2[1 + recovery_time] == sto_from_bus[t_xi + recovery_time])
+            @constraint(model,  sto_to_bus2[1 + recovery_time] == sto_to_bus[t_xi + recovery_time])</code></pre><p>Heat model</p><pre><code class="language-julia hljs">            @recourse(model, 0 &lt;= heat_sto_to_bus2[t in 1:1+recovery_time] &lt;= debug_cap) # from the heat storage
+            @recourse(model, 0 &lt;= heat_sto_from_bus2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @recourse(model, 0 &lt;= heat_sto_soc2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @recourse(model, 0 &lt;= flow_energy2heat2[t in 1:1+recovery_time] &lt;= debug_cap)
+            @constraint(model, [t in 1:1+recovery_time-1], heat_sto_soc2[t+1] == heat_sto_soc2[t] + heat_sto_from_bus2[t] * heat_eff - heat_sto_to_bus2[t] / heat_eff)
+            @constraint(model, [t in 1:1+recovery_time], heat_sto_soc2[t] &lt;= u_heat_storage)
+            @constraint(model, [t in 1:1+recovery_time], flow_energy2heat2[t] &lt;= (1/COP)*u_heatpump)</code></pre><p>Start and end condition</p><pre><code class="language-julia hljs">            @constraint(model, heat_sto_soc2[1] == heat_sto_soc[t_xi])
+            @constraint(model, heat_sto_soc2[1 + recovery_time] == heat_sto_soc[t_xi + recovery_time])
+            @constraint(model,  heat_sto_from_bus2[1 + recovery_time] == heat_sto_from_bus[t_xi + recovery_time])
+            @constraint(model,  heat_sto_to_bus2[1 + recovery_time] == heat_sto_to_bus[t_xi + recovery_time])
+            @constraint(model,  flow_energy2heat2[1 + recovery_time] == flow_energy2heat[t_xi + recovery_time])</code></pre><p>Event energy balance The storage and other fast acting components use the recourse variables here. They provide the balance. Grid connection is not allowed, as we are suporting the grid here.</p><pre><code class="language-julia hljs">            @constraint(model, gci2[1] - gco2[1] + u_pv * pv[t_xi] - pv_cur2[1] + u_wind * wind[t_xi] - wind_cur2[1]
+             - demand[t_xi] + sto_to_bus2[1] - sto_from_bus2[1]
+             - flow_energy2heat2[1] - F_xi * s_xi == 0) # TODO CHeck that our sign convention on positive and negative flexibility agrees with literature</code></pre><p>Post event energy balance</p><pre><code class="language-julia hljs">            @constraint(model, [t in 2:1+recovery_time],
+            gci2[t] - gco2[t]
+            + u_pv * pv[t + t_xi - 1] - pv_cur2[t] + u_wind * wind[t + t_xi - 1] - wind_cur2[t]
+            - demand[t + t_xi - 1] + sto_to_bus2[t] - sto_from_bus2[t] - flow_energy2heat2[t] == 0)</code></pre><p>Heat balance</p><pre><code class="language-julia hljs">            @constraint(model, [t in 1:1+recovery_time], -heatdemand[t + t_xi - 1] + heat_sto_to_bus2[t] - heat_sto_from_bus2[t] + COP*flow_energy2heat2[t] - heat_losses*heat_sto_soc2[t] == 0)</code></pre><p>The objective function is the difference between the adjusted schedule and the final schedule, scaled by the number of events per year. plus the penalty.</p><pre><code class="language-julia hljs">            @objective(model, Min, event_per_scen*(
+              c_i * (sum(gci2) - sum(gci[t_xi:t_xi_final]))
+            - c_o * (sum(gco2) - sum(gco[t_xi:t_xi_final]))
+            + penalty * (gi1 + gi2) + penalty * (go1 + go2)
+            - regularize_lossy_flows * (
+                sum(heat_sto_from_bus[t_xi:t_xi_final]) +
+                sum(heat_sto_to_bus[t_xi:t_xi_final]) +
+                sum(sto_from_bus[t_xi:t_xi_final]) +
+                sum(sto_to_bus[t_xi:t_xi_final]))
+            + regularize_lossy_flows * (
+                sum(heat_sto_from_bus2) +
+                sum(heat_sto_to_bus2) +
+                sum(sto_from_bus2) +
+                sum(sto_to_bus2))
+            ))
+        end
+    end
+    energy_system
+end
+
+&quot;&quot;&quot;
+Get decision variables associated with investment rather than system operation.
+&quot;&quot;&quot;
+get_investments(sp) = Dict((
+    :u_pv =&gt; value.(sp[1, :u_pv]),
+    :u_wind =&gt; value.(sp[1, :u_wind]),
+    :u_storage =&gt; value.(sp[1, :u_storage]),
+    :u_heatpump =&gt; value.(sp[1, :u_heatpump]),
+    :u_heat_storage =&gt; value.(sp[1, :u_heat_storage])
+))
+
+&quot;&quot;&quot;
+Fix the investment variables.
+&quot;&quot;&quot;
+function fix_investment!(sp, investments)
+    for (var_sym, value) in zip(keys(investments), values(investments))
+        fix(decision_by_name(sp, 1, string(var_sym)), value)
+    end
+end
+
+function unfix_investment!(sp, investments)
+    for var_sym in keys(investments)
+        unfix(decision_by_name(sp, 1, string(var_sym)))
+    end
+end
+
+&quot;&quot;&quot;
+Get decision variables associated with 1st stage.
+&quot;&quot;&quot;
+get_operation(sp) = Dict((
+    :pv_cur =&gt; value.(sp[1,:pv_cur]),
+    :wind_cur =&gt; value.(sp[1,:wind_cur]),
+    :gci =&gt; value.(sp[1,:gci]),
+    :gco =&gt; value.(sp[1,:gco]),
+    :sto_to_bus =&gt; value.(sp[1,:sto_to_bus]),
+    :sto_from_bus =&gt; value.(sp[1,:sto_from_bus]),
+    :sto_soc =&gt; value.(sp[1,:sto_soc]),
+    :heat_sto_to_bus =&gt; value.(sp[1,:heat_sto_to_bus]),
+    :heat_sto_from_bus =&gt; value.(sp[1,:heat_sto_from_bus]),
+    :heat_sto_soc =&gt; value.(sp[1,:heat_sto_soc]),
+    :flow_energy2heat =&gt; value.(sp[1,:flow_energy2heat])
+))
+
+&quot;&quot;&quot;
+Fix the investment variables.
+&quot;&quot;&quot;
+function fix_operation!(sp, operation, number_of_hours)
+    for (var_sym, value) in zip(keys(operation), values(operation))
+        for i in 1:number_of_hours
+            fix(decision_by_name(sp, 1, string(var_sym)*&quot;[$i]&quot;), value[i])
+        end
+    end
+end
+
+function unfix_operation!(sp, operation, number_of_hours)
+    for var_sym in keys(operation)
+        for i in 1:number_of_hours
+            unfix(decision_by_name(sp, 1, string(var_sym)*&quot;[$i]&quot;))
+        end
+    end
+end
+
+get_recovery(sp, n)= Dict((
+    :pv_cur2 =&gt; value.(sp[2,:pv_cur2], n),
+    :wind_cur2 =&gt; value.(sp[2,:wind_cur2], n),
+    :gci2 =&gt; value.(sp[2,:gci2], n),
+    :gco2 =&gt; value.(sp[2,:gco2], n),
+    :sto_to_bus2 =&gt; value.(sp[2,:sto_to_bus], n),
+    :sto_from_bus2 =&gt; value.(sp[2,:sto_from_bus2], n),
+    :sto_soc2 =&gt; value.(sp[2,:sto_soc2], n),
+    :heat_sto_to_bus2 =&gt; value.(sp[2,:heat_sto_to_bus2], n),
+    :heat_sto_from_bus2 =&gt; value.(sp[2,:heat_sto_from_bus2], n),
+    :heat_sto_soc2 =&gt; value.(sp[2,:heat_sto_soc2], n),
+    :flow_energy2heat2 =&gt; value.(sp[2,:flow_energy2heat2], n)
+))
+
+&quot;&quot;&quot;
+Get array of penalties taken in each scenario.
+0 means that scenario was satisfied without using grid connection.
+&quot;&quot;&quot;
+function get_penalty_array(sp; scens = nothing)
+    if isnothing(scens)
+        scens = scenarios(sp)
+    end
+    penalties_gci = []
+    penalties_gco = []
+    for i in eachindex(scens)
+        t_xi = scenarios(sp)[i].data.t_xi
+        push!(penalties_gci,value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi])
+        push!(penalties_gco,value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi])
+    end
+    return penalties_gci, penalties_gco
+end
+
+function get_penalized_scenarios(sp; scens = nothing)
+    if isnothing(scens)
+        scens = scenarios(sp)
+    end
+    penalized = []
+    for i in eachindex(scens)
+        t_xi = scenarios(sp)[i].data.t_xi
+        if abs(value.(sp[2,:gci2],i)[1] - value.(sp[1,:gci])[t_xi]) &gt;= 1e-9 || abs(value.(sp[2,:gco2],i)[1] - value.(sp[1,:gco])[t_xi]) &gt;= 1e-9
+        #if Bool(value.(sp[2,:penalty_taken],i))
+            push!(penalized,i)
+        end
+    end
+    return penalized
+end
+
+function get_total_investment(sp)
+    total_inv = sp.stages[1].parameters[:c_pv]*value.(sp[1, :u_pv]) +
+                sp.stages[1].parameters[:c_wind]*value.(sp[1, :u_wind]) +
+                sp.stages[1].parameters[:c_storage]*value.(sp[1, :u_storage]) +
+                sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
+                sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
+    return total_inv
+end
+
+function get_total_investment(data_dict::Dict{String, Any})
+    total_inv = sum([data_dict[&quot;params&quot;][&quot;c_&quot;*var]]*data_dict[&quot;inv&quot;][&quot;u_&quot;*var]
+        for var in [&quot;pv&quot;,&quot;wind&quot;,&quot;storage&quot;,&quot;heat_storage&quot;,&quot;heatpump&quot;])
+    return total_inv[1]
+end
+#=function first_stage_cost(sp)
+
+    return nothing
+end=#
+
+function get_all_data(sp)
+    inv_d = get_investments(sp)
+    op_d = get_operation(sp)
+    n = length(scenarios(sp))
+    rec_d = [get_recovery(sp, i) for i in 1:n]
+    scen_d = [Dict((:probability =&gt; s.probability, :t_xi =&gt; s.data[:t_xi],
+        :F_xi =&gt; s.data[:F_xi], :s_xi =&gt; s.data[:s_xi])) for s in scenarios(sp)]
+    params = merge(sp.stages[1].parameters, sp.stages[2].parameters)
+    return Dict((:inv =&gt; inv_d, :op =&gt; op_d, :rec =&gt; rec_d, :scen =&gt; scen_d, :params =&gt; params))
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../flexibility_by_stochastic_programing/">« Main Story</a><a class="docs-footer-nextpage" href="../evaluation_utils/">Evaluation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Monday 13 March 2023 16:02">Monday 13 March 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

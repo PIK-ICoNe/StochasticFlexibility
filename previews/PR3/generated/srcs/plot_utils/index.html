@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Plotting · Stochastic Flexibility Optimization</title><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">Stochastic Flexibility Optimization</a></span></div><form class="docs-search" action="../../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../../">Flexibility analysis using Stochastic Programing</a></li><li><span class="tocitem">Manuscripts</span><ul><li><a class="tocitem" href="../../flexibility_by_stochastic_programing/">Main Story</a></li></ul></li><li><span class="tocitem">Sources</span><ul><li><a class="tocitem" href="../sp_model/">Model</a></li><li><a class="tocitem" href="../evaluation_utils/">Evaluation</a></li><li class="is-active"><a class="tocitem" href>Plotting</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Sources</a></li><li class="is-active"><a href>Plotting</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Plotting</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/PIK-ICoNe/StochasticFlexibility/blob/main/docs/src/generated/srcs/plot_utils.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><pre><code class="language-julia hljs">using Plots;gr()
+using SankeyPlots
+
+function plot_results(sp_data, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=[&quot;gci&quot;, &quot;gco&quot;], storage_vars=[])
+
+    u_pv = sp_data[&quot;inv&quot;][&quot;u_pv&quot;]
+    u_wind = sp_data[&quot;inv&quot;][&quot;u_wind&quot;]
+    u_storage = sp_data[&quot;inv&quot;][&quot;u_storage&quot;]
+    u_heatpump = sp_data[&quot;inv&quot;][&quot;u_heatpump&quot;]
+    u_heat_storage = sp_data[&quot;inv&quot;][&quot;u_heat_storage&quot;]
+
+    plt_sto = plot(; legend = :outertopright)
+    plt_invest = plot(; legend = :outertopright)
+    plt = plot(; legend = :outertopright)
+    plot!(plt_invest, plot_window, pv[plot_window] .* u_pv, label=&quot;PV&quot;)
+    plot!(plt_invest, plot_window, w[plot_window] .* u_wind, label=&quot;Wind&quot;)
+    plot!(plt_invest, plot_window, el_d[plot_window], label=&quot;Electrical demand&quot;)
+    t_xi = sp_data[&quot;scen&quot;][s][&quot;t_xi&quot;]
+    recovery_time = sp_data[&quot;params&quot;][&quot;recovery_time&quot;]
+
+    stor_charge = sp_data[&quot;op&quot;][&quot;sto_soc&quot;]
+    plot!(plt_sto, plot_window, stor_charge[plot_window], label=&quot;global storage charge&quot;)
+    if t_xi in plot_window
+        plot!(plt_sto, (t_xi):(t_xi+recovery_time), sp_data[&quot;rec&quot;][s][&quot;sto_soc2&quot;], label=string(&quot;stochastic storage charge&quot;)*string(s), linestyle=:dash, linewidth=2)
+    end
+
+    for var in el_balance_vars
+        plot!(plt, plot_window, sp_data[&quot;op&quot;][var][plot_window], label=var)
+        if t_xi in plot_window
+            var2 = var*&quot;2&quot;
+            plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), sp_data[&quot;rec&quot;][s][var2], label=var*&quot; 2nd stage, s = &quot;*string(s), linestyle=:dash, linewidth=2)
+        end
+    end
+    return plot(plt_invest, plt, plt_sto, layout = (3,1))
+end
+
+function plot_heat_layer(sp_data, heatdemand; plot_window = 1:length(heatdemand), s = 1)
+    plt_heat = plot(; legend = :outertopright)
+    COP = sp_data[&quot;params&quot;][&quot;COP&quot;]
+
+    plot!(plt_heat, plot_window, heatdemand[plot_window], label = &quot;heat demand&quot;)
+    plot!(plt_heat, plot_window, COP*sp_data[&quot;op&quot;][&quot;flow_energy2heat&quot;][plot_window], label = &quot;heatpump&quot;)
+    plot!(plt_heat, plot_window, sp_data[&quot;op&quot;][&quot;heat_sto_soc&quot;][plot_window], label = &quot;heat storage SOC&quot;)
+    plot!(plt_heat, plot_window, sp_data[&quot;op&quot;][&quot;heat_sto_to_bus&quot;][plot_window]-sp_data[&quot;op&quot;][&quot;heat_sto_from_bus&quot;][plot_window], label = &quot;heat storage use&quot;)</code></pre><p>plot!(plt<em>heat, (t</em>xi+1):(t<em>xi+1+recovery</em>time), COP*sp<em>data[&quot;rec&quot;][s][&quot;flow</em>energy2heat2&quot;], label = &quot;heatpumps&quot;, linestyle=:dash, linewidth=2) plot!(plt<em>heat, (t</em>xi+1):(t<em>xi+1+recovery</em>time), sp<em>data[&quot;rec&quot;][s][&quot;heat</em>sto<em>to</em>bus2&quot;]-sp<em>data[&quot;rec&quot;][2][&quot;heat</em>sto<em>from</em>bus2&quot;], label = &quot;heat storage use s&quot;, linestyle=:dash, linewidth=2)</p><pre><code class="language-julia hljs">end
+
+function plot_raw_heat_layer(sp_data, heatdemand; plot_span = 1:length(heatdemand), s = 1)
+    plt_heat = plot(; legend = :outertopright)
+    COP = sp_data[&quot;params&quot;][&quot;COP&quot;]
+
+    #plot!(plt_heat, plot_span, heatdemand[plot_span], label = &quot;heat demand&quot;)
+    #plot!(plt_heat, plot_span, COP*value.(sp[1, :flow_energy2heat])[plot_span], label = &quot;heatpump&quot;)
+    plot!(plt_heat, plot_span, sp_data[&quot;op&quot;][&quot;heat_sto_soc&quot;][plot_span], label = &quot;heat storage SOC&quot;)
+    plot!(plt_heat, plot_span, sp_data[&quot;op&quot;][&quot;heat_sto_to_bus&quot;][plot_span], label = &quot;heat storage to bus&quot;)
+    plot!(plt_heat, plot_span, sp_data[&quot;op&quot;][&quot;heat_sto_from_bus&quot;][plot_span], label = &quot;heat storage from bus&quot;)</code></pre><p>plot!(plt<em>heat, (t</em>xi+1):(t<em>xi+1+recovery</em>time), COP*value.(sp[2, :flow<em>energy2heat2], s), label = &quot;heatpumps&quot;, linestyle=:dash, linewidth=2) plot!(plt</em>heat, (t<em>xi+1):(t</em>xi+1+recovery<em>time), value.(sp[2, :heat</em>sto<em>in2], s)-value.(sp[2, :heat</em>sto_out2], s), label = &quot;heat storage use s&quot;, linestyle=:dash, linewidth=2)</p><pre><code class="language-julia hljs">end
+
+function plot_recovery_window_deviation(sp_data; s = 1)
+    plt_gc = plot()
+    plt_sto = plot()
+    t_xi = sp_data[&quot;scen&quot;][s][&quot;t_xi&quot;]
+    recovery_time = sp_data[&quot;params&quot;][&quot;recovery_time&quot;]
+    plot!(plt_gc, COP*sp_data[&quot;op&quot;][&quot;flow_energy2heat&quot;][t_xi+1:t_xi+1+recovery_time], label = &quot;global flow_energy2heat&quot;)
+    plot!(plt_gc, COP*sp_data[&quot;rec&quot;][s][&quot;flow_energy2heat2&quot;], label = &quot;stochastic flow_energy2heat&quot;)
+    plot!(plt_gc, -sp_data[&quot;op&quot;][&quot;gci&quot;][t_xi+1:t_xi+1+recovery_time]+sp_data[&quot;op&quot;][&quot;gco&quot;][t_xi+1:t_xi+1+recovery_time], label = &quot;global grid connection use&quot;)
+    plot!(plt_gc, sp_data[&quot;rec&quot;][s][&quot;gco2&quot;] - sp_data[&quot;rec&quot;][s][&quot;gci2&quot;], xlabel = &quot;time after the event, h&quot;, label = &quot;stochastic grid connection use&quot;)
+    #plot!(plt_gc, -value.(sp[1, :gco])[t_xi+1:t_xi+recovery_time]+value.(sp[2, :gco2], s), xlabel = &quot;time after the event, h&quot;, label = &quot;gco2-gco&quot;)
+
+    stor_charge = sp_data[&quot;op&quot;][&quot;sto_soc&quot;][t_xi+1:t_xi+1+recovery_time]
+    stor_charge2 = sp_data[&quot;rec&quot;][s][&quot;sto_soc2&quot;]
+
+    plot!(plt_sto, stor_charge2-stor_charge, label = &quot;soc2-soc&quot;)
+
+
+    plot(plt_gc, plt_sto, layout = (2, 1))
+end
+
+function plot_outcome(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_end=2)
+    scen = @scenario t_xi = t_xi s_xi = s_xi F_xi = F_xi probability = 1.
+    sp = outcome_model(sp_base, optimal_decision(sp_base), scen; optimizer = subproblem_optimizer(sp_base))
+    optimize!(sp)
+    if termination_status(sp) != JuMP.MathOptInterface.OPTIMAL
+        println(&quot;No optimum&quot;)
+        return termination_status(sp)
+    end
+
+    recovery_window = t_xi:t_xi+length(sp[:gco2])-1
+    plot_window = t_xi+window_start:t_xi+length(sp[:gco2])+window_end</code></pre><p>Some of these should probably be shifted by ±1</p><pre><code class="language-julia hljs">    plt_gb = plot(title=&quot;grid buy&quot;, legend=:outertopright)
+    plot!(plt_gb, plot_window, value.(sp[:gci][plot_window]) .- value.(sp[:gco][plot_window]), label = &quot;Base Case&quot;)
+    plot!(plt_gb, recovery_window, value.(sp[:gci2]) .- value.(sp[:gco2]), label = &quot;Event&quot;)
+
+    plt_soc = plot(title=&quot;soc&quot;, legend=:outertopright)
+    plot!(plt_soc, plot_window, value.(sp[:sto_soc][plot_window]), label = &quot;Base Case&quot;)
+    plot!(plt_soc, recovery_window, value.(sp[:sto_soc2]), label = &quot;Event&quot;)
+
+    plt_h_soc = plot(title=&quot;heat soc&quot;, legend=:outertopright)
+    plot!(plt_h_soc, plot_window, value.(sp[:heat_sto_soc][plot_window]), label = &quot;Base Case&quot;)
+    plot!(plt_h_soc, recovery_window, value.(sp[:heat_sto_soc2]), label = &quot;Event&quot;)
+
+    plt_e2h = plot(title=&quot;e2h&quot;, legend=:outertopright)
+    plot!(plt_e2h, plot_window, value.(sp[:flow_energy2heat][plot_window]), label = &quot;Base Case&quot;)
+    plot!(plt_e2h, recovery_window, value.(sp[:flow_energy2heat2]), label = &quot;Event&quot;)
+
+    plot(plt_gb, plt_h_soc, plt_soc, plt_e2h, layout=(4,1))
+end
+
+function plot_scenario_debug(sp_data, s; window_start=-2, window_end=2, vars = [&quot;gci&quot;, &quot;gco&quot;, &quot;sto_soc&quot;, &quot;heat_sto_soc&quot;, &quot;flow_energy2heat&quot;])
+
+    t_xi = sp_data[&quot;scen&quot;][s][&quot;t_xi&quot;]
+    recovery_time = sp_data[&quot;params&quot;][&quot;recovery_time&quot;]
+
+    recovery_window = t_xi:t_xi+recovery_time
+    plot_window = t_xi+window_start:t_xi+recovery_time+window_end
+
+    plots = []
+
+    for var in vars
+        plt_var = plot(title=var, legend=:outertopright)
+
+
+        plot!(plt_var, plot_window, sp_data[&quot;op&quot;][var][plot_window], label = &quot;Base Case&quot;)
+        plot!(plt_var, recovery_window, sp_data[&quot;rec&quot;][s][var*&quot;2&quot;][plot_window], label = &quot;Event&quot;)
+
+        push!(plots, plt_var)
+    end
+
+    plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
+end
+
+function plot_base_case_raw(sp_data; plot_window = nothing, vars = [&quot;gci&quot;, &quot;gco&quot;, &quot;sto_soc&quot;, &quot;heat_sto_soc&quot;, &quot;flow_energy2heat&quot;])
+
+    if isnothing(plot_window)
+        plot_window = 1:length(sp_data[&quot;op&quot;][&quot;gci&quot;])
+    end
+
+    plots = []
+
+    for var in vars
+        plt_var = plot(title=var, legend=:none)
+
+        plot!(plt_var, plot_window, sp_data[&quot;op&quot;][var][plot_window])
+
+        push!(plots, plt_var)
+    end
+
+    plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
+end
+
+
+function plot_outcome_debug(sp_base, t_xi, s_xi, F_xi; window_start=-2, window_end=2, vars = [&quot;gci&quot;, &quot;gco&quot;, &quot;sto_soc&quot;, &quot;heat_sto_soc&quot;, &quot;flow_energy2heat&quot;])
+    scen = @scenario t_xi = t_xi s_xi = s_xi F_xi = F_xi probability = 1.
+    sp = outcome_model(sp_base, optimal_decision(sp_base), scen; optimizer = subproblem_optimizer(sp_base))
+    optimize!(sp)
+    if termination_status(sp) != JuMP.MathOptInterface.OPTIMAL
+        println(&quot;No optimum&quot;)
+        return termination_status(sp)
+    end
+    recovery_time = length(sp[:gco2])-1
+
+    recovery_window = t_xi:t_xi+recovery_time
+    plot_window = t_xi+window_start:t_xi+recovery_time+window_end
+
+    plots = []
+
+    for var in vars
+        plt_var = plot(title=var, legend=:outertopright)
+        symbol_base_case = Symbol(var) # e.g. :sto_soc
+        symbol_event_case = Symbol(var * &quot;2&quot;) # e.g. :sto_soc2
+
+        plot!(plt_var, plot_window, value.(sp[symbol_base_case][plot_window]), label = &quot;Base Case&quot;)
+        plot!(plt_var, recovery_window, value.(sp[symbol_event_case]), label = &quot;Event&quot;)
+
+        push!(plots, plt_var)
+    end
+
+    plot(plots...; layout=(length(plots),1), size = (800, 150*length(plots)))
+end
+
+function sankey_results(sp, pv, w, el_d, timesteps)
+    total_pv = value.(sp[1, :u_pv])*sum(pv[timesteps])
+    total_wind = value.(sp[1, :u_wind])*sum(w[timesteps])
+    total_demand = sum(el_d[timesteps])
+    pv_cur = sum(value.(sp[1,:pv_cur])[timesteps])
+    wind_cur = sum(value.(sp[1,:wind_cur])[timesteps])
+    st_in = sum(value.(sp[1,:sto_to_bus])[timesteps])
+    st_out = sum(value.(sp[1,:sto_from_bus])[timesteps])
+    grid_in = sum(value.(sp[1,:gci])[timesteps])
+    grid_out = sum(value.(sp[1,:gco])[timesteps])
+    energy2heat = sum(value.(sp[1,:flow_energy2heat])[timesteps])
+    losses_charge = 1/sp.stages[1].parameters[:sto_ef_ch] - 1.
+    losses_discharge = 1. - sp.stages[1].parameters[:sto_ef_dis]
+    storage_losses = losses_charge*sum(value.(sp[1,:sto_from_bus])[timesteps]) + losses_discharge*sum(value.(sp[1,:sto_to_bus])[timesteps])
+    labels = [&quot;PV&quot;, &quot;Wind&quot;, &quot;Storage (input)&quot;, &quot;Storage (output)&quot;, &quot;Demand&quot;, &quot;Grid input&quot;, &quot;Grid output&quot;, &quot;Bus&quot;, &quot;Losses&quot;, &quot;Energy to heat&quot;, &quot;Curtailment&quot;]
+    src = [1,1,2,2,4,6,8,8,8,8,8]
+    trg = [8,11,8,11,8,8,3,5,7,9,10]
+    weights = [total_pv-pv_cur, pv_cur, total_wind-wind_cur, wind_cur, st_in, grid_in, st_out, total_demand, grid_out, storage_losses, energy2heat]
+    total_in = total_pv+total_wind+st_in+grid_in-pv_cur-wind_cur
+    total_out = total_demand+st_out+grid_out+energy2heat
+    println(&quot;relative mismatch = $((total_in-total_out)/total_in)&quot;)
+    #println(storage_losses/(st_in+st_out))
+    sankey(src, trg, weights, node_labels = labels)
+end
+
+function plot_scenario_distribution(scenarios; by_sign = false)
+    if !by_sign
+        scen_matrix = zeros((24,365))
+        for s in scenarios
+            t_xi = s.data.t_xi
+            scen_matrix[mod(t_xi,24)+1,t_xi÷24+1] = 1
+        end
+        heatmap(scen_matrix, leg=false,
+        xlabel = &quot;Day of the year&quot;,
+        ylabel = &quot;Hour of the day&quot;, title = &quot;Ancillary requests sample&quot;)
+    else
+        scen_matrix_pos = zeros((24,365))
+        scen_matrix_neg = zeros((24,365))
+
+        for s in scenarios
+            t_xi = s.data.t_xi
+            s_xi = s.data.s_xi
+            F_xi = s.data.F_xi
+            if s_xi == 1
+                scen_matrix_pos[mod(t_xi,24)+1,t_xi÷24+1] = F_xi
+            else
+                scen_matrix_neg[mod(t_xi,24)+1,t_xi÷24+1] = F_xi
+            end
+        end
+        p = plot(layout = (1,2))
+        plot!(p[1],scen_matrix_pos, seriestype = :heatmap, ratio = 365/24, framestyle = :none)
+        plot!(p[2],scen_matrix_neg, seriestype = :heatmap, ratio = 365/24, framestyle = :none)
+    end
+end
+
+function plot_flex_sources(sp_data, pv, wind; timesteps = 1:24*365)
+    pos_cur = sp_data[&quot;op&quot;][&quot;pv_cur&quot;][timesteps[begin:end-1]] .+ sp_data[&quot;op&quot;][&quot;wind_cur&quot;][timesteps[begin:end-1]]
+    neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data[&quot;inv&quot;][&quot;u_pv&quot;] .- wind[timesteps[begin:end-1]].*sp_data[&quot;inv&quot;][&quot;u_wind&quot;]
+    pos_sto = sp_data[&quot;op&quot;][&quot;sto_soc&quot;][timesteps[begin+1:end]]
+    neg_sto = pos_sto .- sp_data[&quot;inv&quot;][&quot;u_storage&quot;]
+    COP = COP = sp_data[&quot;params&quot;][&quot;COP&quot;]
+    pos_heat_sto = sp_data[&quot;op&quot;][&quot;heat_sto_soc&quot;][timesteps[begin+1:end]]/COP
+    neg_heat_sto = pos_heat_sto .- sp_data[&quot;inv&quot;][&quot;u_heat_storage&quot;]/COP
+    #=plt = plot(layout = (1,2))
+    plot!(plt[1], pos_cur, fill = (0, 0.5))
+    plot!(plt[1], pos_sto, fill = (0, 0.5))
+    plot!(plt[1], pos_heat_sto, fill = (0, 0.5))
+    plot!(plt[2], neg_cur, fill = (0, 0.5))
+    plot!(plt[2], neg_sto, fill = (0, 0.5))
+    plot!(plt[2], neg_heat_sto, fill = (0, 0.5))=#
+    p1 = areaplot(timesteps[begin:end-1], [pos_cur, pos_sto, pos_heat_sto], fillalpha = [0.5 0.5 0.5])
+    p2 = areaplot(timesteps[begin:end-1], [-neg_cur, -neg_sto, -neg_heat_sto], fillalpha = [0.5 0.5 0.5])
+    plot(p1, p2, layout = (1,2))
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../evaluation_utils/">« Evaluation</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Monday 13 March 2023 16:02">Monday 13 March 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
