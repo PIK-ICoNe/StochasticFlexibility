@@ -1,11 +1,9 @@
 using DataFrames
-using CSV
+
 using JSON
-using Tables
 using Clp
 using Statistics;
 using StochasticPrograms
-
 using Random
 
 include(joinpath(basepath, "src", "sp_model.jl"))
@@ -32,8 +30,8 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     sp = instantiate(es, scens, optimizer = Clp.Optimizer)
     # Prevent investment in the heat components if there is no heat demand
     if maximum(heatdemand) == 0.
-        fix!(decision_by_name(sp, 1, :u_heatpump), 0.)
-        fix!(decision_by_name(sp, 1, :u_heat_storage), 0.)
+        fix(decision_by_name(sp, 1, "u_heatpump"), 0.)
+        fix(decision_by_name(sp, 1, "u_heat_storage"), 0.)
     end
     set_silent(sp)
     if !isnothing(fixed_invs)
@@ -48,6 +46,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, s
     runtime = time() - stime
     println("Model optimized in $runtime seconds")
     lock(savefile_lock)
+    @assert objective_value(sp) != Inf
     if savefiles
         opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
             :F_guar_pos => F_pos, :F_guar_neg => F_neg))

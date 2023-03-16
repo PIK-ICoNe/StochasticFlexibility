@@ -1,14 +1,9 @@
 using Plots;gr()
 using SankeyPlots
 
-function plot_results(sp_data, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=["gci", "gco"], storage_vars=[])
-
+function plot_results(sp_data::Dict{String, Any}, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=["gci", "gco"], storage_vars=[])
     u_pv = sp_data["inv"]["u_pv"]
     u_wind = sp_data["inv"]["u_wind"]
-    u_storage = sp_data["inv"]["u_storage"]
-    u_heatpump = sp_data["inv"]["u_heatpump"]
-    u_heat_storage = sp_data["inv"]["u_heat_storage"]
-    
     plt_sto = plot(; legend = :outertopright)
     plt_invest = plot(; legend = :outertopright)
     plt = plot(; legend = :outertopright)
@@ -29,6 +24,34 @@ function plot_results(sp_data, pv, w, el_d; plot_window = 1:length(pv), s=1, el_
         if t_xi in plot_window
             var2 = var*"2"
             plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), sp_data["rec"][s][var2], label=var*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
+        end
+    end
+    return plot(plt_invest, plt, plt_sto, layout = (3,1))
+end
+
+function plot_results(sp_data::Dict{Symbol, Any}, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[])
+    u_pv = sp_data[:inv][:u_pv]
+    u_wind = sp_data[:inv][:u_wind]
+    plt_sto = plot(; legend = :outertopright)
+    plt_invest = plot(; legend = :outertopright)
+    plt = plot(; legend = :outertopright)
+    plot!(plt_invest, plot_window, pv[plot_window] .* u_pv, label="PV")
+    plot!(plt_invest, plot_window, w[plot_window] .* u_wind, label="Wind")
+    plot!(plt_invest, plot_window, el_d[plot_window], label="Electrical demand")
+    t_xi = sp_data[:scen][s][:t_xi]
+    recovery_time = sp_data[:params][:recovery_time]
+
+    stor_charge = sp_data[:op][:sto_soc]
+    plot!(plt_sto, plot_window, stor_charge[plot_window], label="global storage charge")
+    if t_xi in plot_window
+        plot!(plt_sto, (t_xi):(t_xi+recovery_time), sp_data[:rec][s][:sto_soc2], label=string("stochastic storage charge")*string(s), linestyle=:dash, linewidth=2)
+    end
+
+    for var in el_balance_vars
+        plot!(plt, plot_window, sp_data[:op][var][plot_window], label=string(var))
+        if t_xi in plot_window
+            var2 = string(var)*"2"
+            plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), sp_data[:rec][s][Symbol(var2)], label=string(var)*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
         end
     end
     return plot(plt_invest, plt, plt_sto, layout = (3,1))
