@@ -72,7 +72,7 @@ savefig(heatmap(F_range, scen_freq,data_matrix[:u_storage],
 
 savefig(heatmap(F_range, scen_freq,data_matrix[:u_heat_storage], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", title = "Storage, kWh"), joinpath(plotpath, "u_heatstorage.png"))
+    ylabel = "Expected offset between requests, hours", title = "Heat storage, kWh"), joinpath(plotpath, "u_heatstorage.png"))
 savefig(heatmap(F_range, scen_freq, data_matrix[:u_pv], 
     xlabel = "Guaranteed flexibility",
     ylabel = "Expected offset between requests, hours", 
@@ -81,7 +81,7 @@ savefig(heatmap(F_range, scen_freq, data_matrix[:u_pv],
 savefig(heatmap(F_range, scen_freq, data_matrix[:u_heatpump], 
     xlabel = "Guaranteed flexibility",
     ylabel = "Expected offset between requests, hours", 
-    title = "Wind, kWp"), joinpath(plotpath, "u_heatpump.png"))
+    title = "Heat pump, kWp"), joinpath(plotpath, "u_heatpump.png"))
 
 savefig(heatmap(F_range, scen_freq, data_matrix[:total_inv], 
     xlabel = "Guaranteed flexibility",
