@@ -332,15 +332,12 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     energy_system
 end
 
+inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
 """
 Get decision variables associated with investment rather than system operation.
 """
 get_investments(sp) = Dict((
-    :u_pv => value.(sp[1, :u_pv]),
-    :u_wind => value.(sp[1, :u_wind]),
-    :u_storage => value.(sp[1, :u_storage]),
-    :u_heatpump => value.(sp[1, :u_heatpump]),
-    :u_heat_storage => value.(sp[1, :u_heat_storage])
+    [var => value.(sp[1, var]) for var in inv_vars]
 ))
 
 """
@@ -350,12 +347,14 @@ function fix_investment!(sp, investments)
     for (var_sym, value) in zip(keys(investments), values(investments))
         fix(decision_by_name(sp, 1, string(var_sym)), value)
     end
+    println("The investments are fixed.")
 end
 
-function unfix_investment!(sp, investments)
-    for var_sym in keys(investments)
+function unfix_investment!(sp)
+    for var_sym in inv_vars
         unfix(decision_by_name(sp, 1, string(var_sym)))
     end
+    println("The investments are released")
 end
 
 """
@@ -384,6 +383,7 @@ function fix_operation!(sp, operation, number_of_hours)
             fix(decision_by_name(sp, 1, string(var_sym)*"[$i]"), value[i])
         end
     end
+    println("Operational schedule is fixed")
 end
 
 function unfix_operation!(sp, operation, number_of_hours)
@@ -392,6 +392,7 @@ function unfix_operation!(sp, operation, number_of_hours)
             unfix(decision_by_name(sp, 1, string(var_sym)*"[$i]"))
         end
     end
+    println("Operational schedule is released")
 end
 
 get_recovery(sp, n)= Dict((
@@ -455,10 +456,12 @@ function get_total_investment(data_dict::Dict{String, Any})
         for var in ["pv","wind","storage","heat_storage","heatpump"])
     return total_inv[1]
 end
-#=function first_stage_cost(sp)
-    
-    return nothing
-end=#
+function get_operation_cost(data_dict::Dict{String, Any})
+    op_cost = data_dict["params"]["c_i"]sum(data_dict["op"]["gci"]) - data_dict["params"]["c_o"]sum(data_dict["op"]["gco"]) +
+        data_dict["params"]["regularize_lossy_flows"]*(sum(data_dict["op"]["heat_sto_from_bus"])+sum(data_dict["op"]["heat_sto_to_bus"])+
+        sum(data_dict["op"]["sto_from_bus"]) + sum(data_dict["op"]["sto_to_bus"]))
+    return op_cost
+end
 
 function get_all_data(sp)
     inv_d = get_investments(sp)
@@ -469,4 +472,11 @@ function get_all_data(sp)
         :F_xi => s.data[:F_xi], :s_xi => s.data[:s_xi])) for s in scenarios(sp)]
     params = merge(sp.stages[1].parameters, sp.stages[2].parameters)
     return Dict((:inv => inv_d, :op => op_d, :rec => rec_d, :scen => scen_d, :params => params))
+end
+
+"""This function reconstructs the sample of scenarios back from the format saved to JSON,
+where dict keys are replaced with strings instead of symbols
+"""
+function reconstruct_sample(scens)
+    return [@scenario t_xi = s["t_xi"] s_xi = s["s_xi"] F_xi = s["F_xi"] probability = s["probability"]["π"] for s in scens]
 end

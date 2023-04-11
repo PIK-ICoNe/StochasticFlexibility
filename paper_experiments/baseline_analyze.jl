@@ -11,16 +11,27 @@ Pkg.activate(basepath)
 # Pkg.instantiate()
 include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"))
 include(joinpath(basepath, "src", "plot_utils.jl"))
+#-
+F_range = 0.:2500.:25000.
 
-costs = []
-F_range = 0.:5000.:25000.
-for F in F_range
-    c = CSV.read(joinpath(basepath, "results/naive_flex/bkg", "cost_bkg_$F.csv"), DataFrame)[!,1]
-    append!(costs, c)
+costs = zeros(length(F_range))
+inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
+invs = Dict(([var => zeros(length(F_range)) for var in inv_vars]))
+for i in eachindex(F_range)
+    opt_data =  JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_$(F_range[i]).json"))
+    costs[i] = opt_data["cost"]
+    for var in inv_vars
+        invs[var][i] = opt_data["inv"][string(var)]
+    end
+    opt_data = nothing
 end
 
-plot(F_range, costs)
-savefig(joinpath(basepath, paper_plots, "baseline_costs_F.jl"))
+plot(F_range, costs, label = "cost")
+savefig(joinpath(basepath, "paper_plots", "baseline_costs_F.png"))
+for var in inv_vars
+    plot(F_range, invs[var], label = string(var))
+    savefig(joinpath(basepath, "paper_plots", "baseline_$(var)_F.png"))
+end
 #-
 
 # also plot investments(F)

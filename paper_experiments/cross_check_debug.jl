@@ -4,7 +4,7 @@ investment decision separartely,
 fixing one of them to that of the baseline scenario.
 
 We focus on three particular pairs of F and scen_freq:
-(5000., 48), (7500., 144), (25000., 240)
+(5000., 24), (7500., 144), (25000., 240)
 =#
 
 ## Everything runs in the Project environment on the basepath
@@ -17,28 +17,13 @@ Pkg.activate(basepath)
 
 #-
 include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"))
-
 #-
-# ARGS[1] should be "debug" or run_id
 debug = false
-@assert length(ARGS)>=1
-
-n_runs = 1 # number of repeats with the same parameters
-if length(ARGS) > 1
-    n_runs = Base.parse(Int,ARGS[2])
-    println(n_runs)
-end
-
-if occursin("debug", ARGS[1])
-    debug = true
-    println("Debug run")
-end
 
 !debug && (warm_up())
 
-run_id  = ARGS[1]
-stime = time()
-savepath = joinpath(basepath, "results", run_id)
+stime = time();
+savepath = joinpath(basepath, "results", "debug")
 if !isdir(savepath)
     mkdir(savepath)
 end
@@ -55,9 +40,8 @@ if debug
 	n_samples = 5
 else
     n_samples = 20
-    params = [(5000., 48), (7500., 144), (25000., 240)]
-    i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
-    F, scen_freq = params[(i-1)÷n_runs]
+    params = [(7500., 144), (25000., 240)]
+    F, scen_freq = params[1]#[Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))]
 	println("F = $F")
 	println("scen_freq = $(scen_freq)")
 end
@@ -71,6 +55,8 @@ if !isdir(fixed_inv_path)
 end
 
 #-
+savefile_lock = ReentrantLock()
+
 t_max_offset = 24
 t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset
 recovery_time = pars[:recovery_time]
@@ -85,7 +71,6 @@ read_data = JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_$(F)
 invs = read_data["inv"]
 @show invs
 read_data = nothing;
-sp_bkg, = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, fixed_invs = invs, savefiles = true, savepath = joinpath(fixed_inv_path,"run_$(i)_$(n_samples)_$(scen_freq)_$(F).json"), F_max = F, scens = scens)
+sp_bkg, = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock, fixed_invs = invs, savefiles = false, savepath = fixed_inv_path, F_max = F, scens = scens)
 
-optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefiles = true, savepath = joinpath(savepath,"run_$(i)_$(n_samples)_$(scen_freq)_$(F).json"), F_max = F, scens = scens, sp_bck = sp_bkg)
-sp_bkg = nothing;
+optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock, savefiles = false, savepath = savepath, F_max = F, scens = scens, sp_bck = sp_bkg)
