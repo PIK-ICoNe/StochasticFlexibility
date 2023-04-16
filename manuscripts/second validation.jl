@@ -4,7 +4,7 @@ basepath = realpath(joinpath(@__DIR__, ".."))
 
 using Pkg
 Pkg.activate(basepath)
-# Pkg.instantiate()
+Pkg.instantiate()
 
 using DataFrames
 using CSV

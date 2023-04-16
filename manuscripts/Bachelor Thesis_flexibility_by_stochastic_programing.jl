@@ -4,12 +4,14 @@ basepath = realpath(joinpath(@__DIR__, ".."))
 
 using Pkg
 Pkg.activate(basepath)
-# Pkg.instantiate()
+#Pkg.instantiate()
 
 using DataFrames
 using CSV
 using Clp
+using JSON
 using Statistics;
+
 
 using Random
 Random.seed!(1);
@@ -43,20 +45,31 @@ include(joinpath(basepath, "src", "evaluation_utils.jl"));
 #=
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
-
+t_max_offset = 24 #not using the last day of the year, it is not allowed to have a request in the last day  
 offset = 0
 timesteps = 1:(24*365)
 
-data = CSV.read(joinpath(basepath, "timeseries", "basic_example.csv"), DataFrame)
-heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
+#loading a timeseries for photovoltaic (pv) and wind potial and the demnad for electricity and heat"
+pv_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_ninja_pv_pik.csv"), DataFrame, header = false)
+wind_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_ninja_wind_pik.csv"), DataFrame, header = false)
+demand_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_apartment_block(KFW40)_300km2_6600MWhperyear.csv"), DataFrame, header = false)
 
-pv = data[timesteps .+ offset, 3]
-wind = data[timesteps .+ offset, 4]
-demand = data[timesteps .+ offset, 2]
+heatdemand_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_heatdemand_apartment_block(KFW40)_300km2_12300MWhperyear.csv"), DataFrame, header = false)
+
+#defining the offset of each timesiries
+pv = pv_data[timesteps .+ offset, 1]
+wind = wind_data[timesteps .+ offset, 1]
+demand = demand_data[timesteps .+ offset, 1]
 heatdemand = heatdemand_data[timesteps .+ offset, 1]
+heatdemand = zeros(length(timesteps)) #if heatdemand is not needed 
+
+t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset #using the longest possible timeintervall 
 
 data = nothing; # Free the memory
 heatdemand_data = nothing;
+pv_data = nothing;
+wind_data = nothing;
+demand_data = nothing; # Free the memory
 
 plt = plot(timesteps, pv .* (mean(demand) / mean(pv)), label="PV (unitless)")
 plot!(plt, timesteps, wind.* (mean(demand) / mean(wind)), label="Wind (unitless)")
@@ -64,25 +77,11 @@ plot!(plt, timesteps, heatdemand, label="Heat Demand")
 plot!(plt, timesteps, demand, label="Electric Demand")
 plt
 #-
-
+## Paul: maybe using refreshed one 
 #=
 Next we continue the set up. Our model comes with default parameters,
 which we slightly adjust here. We use some arbitrary values to define a dummy heat demand.
 =#
-
-# pars = copy(default_es_pars)
-
-# average_hourly_demand = mean(demand)
-
-# pars[:recovery_time] = 24
-# pars[:c_storage] = 100.
-# pars[:c_pv] = 300.
-# pars[:c_wind] = 550.
-# pars[:c_sto_op] = 0.00001;
-
-# pars[:]
-# #-
-
 
 pars = copy(default_es_pars)
 
@@ -91,26 +90,29 @@ average_hourly_demand = mean(demand)
 recovery_time = 12
 
 pars[:recovery_time] = recovery_time
-pars[:c_storage] = 100.
-pars[:c_pv] = 300.
-pars[:c_wind] = 550.
-pars[:c_sto_op] = 0.00001;
+pars[:c_storage] = 600.
+pars[:c_pv] = 800.
+pars[:c_wind] = 2500.
+pars[:c_sto_op] = 0.00001
 pars[:penalty] = 1000000.
+pars[:c_i] = 0.4
+pars[:c_o] = 0.04
+pars[:c_heat_storage] = 400.
+pars[:asset_lifetime] = 20.
+pars[:c_heatpump] = 457.; #kW heat -> mayve wrong and it should be 1600
 
-t_max = length(pv) - 24
-F_max = 10000.
-delta_t = 3*24 # Flex event every week
-pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
-n = round(Int, 10 * pars[:event_per_scen])
 
-scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max)
-
+savepath = joinpath(basepath, "results")
+if !isdir(savepath)
+    mkdir(savepath)
+end
 #=
 The model itself is constructed by the function define_energy_system
 =#
 
 es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false, override_no_event_per_scen = true)
 es_no_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = false)
+
 
 #-
 
@@ -122,8 +124,15 @@ We now can optimize the system, initialy while ignoring flexibility:
 =#
 
 sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+#no flex sampler 
 
-set_silent(sp_bkg)
+# Prevent investment in the heat components if there is no heat demand
+if maximum(heatdemand) == 0.
+    fix(decision_by_name(sp_bkg, 1, "u_heatpump"), 0.)
+    fix(decision_by_name(sp_bkg, 1, "u_heat_storage"), 0.)
+end
+
+set_silent(sp_bkg) #no direct output from the solver 
 
 optimize!(sp_bkg)
 
@@ -131,45 +140,11 @@ bkg_decision = optimal_decision(sp_bkg)
 
 objective_value(sp_bkg)
 
-#-
-
-#=
-```math
-\overline I_{nf} , \overline O^t_{nf} = \argmin_{I, O^t} C(I, O^t)
-```
-
-We can now analyse how much flexibility is available at each point in time with this investment and this schedule.
-
-To do so we distinguish between parts of the operational schedule that can react to a flexibility demand in the moment that it occurs, and those that can only adapt later to help recover the system back towards its previously planned schedule.
-Essentially into slow components $O^{s,t}$ and fast components $O^{f,t}$
-
-```math
-O^t = (O^{f,t}, O^{s,t})
-```
-
-We then consider the cost of the system when confronted with an additional negative or positive demand $F$ at some timepoint $t^F$.
-At the timepoint $t^F$ only the fast reacting components can adjust their schedule, the slow components still have to stick to the previous schedule.
-After the event we give the system a time $t_r$ to recover back to its original schedule. Here the slow components can contribute. Thus we have:
-
-```math
-\begin{aligned}
-c(F,t^F) &= \min_{O^t} C'(\overline I_{nf}, O^t, F, t_f)  \\
-O^{s,t} &= \overline O^t_{nf} \;\; \forall \;\;\; t \leq t^F , \;\;\; t > t^F + t_r \\
-O^{f,t} &= \overline O^t_{nf} \;\; \forall  \;\;\; t < t^F , \;\;\; t > t^F + t_r
-\end{aligned}
-```
-
-This is the cost of flexibility in the sense of Harder et.al. This optimization is not always feasible.
-The maximum and minimum $F$ for which it is feasible is called the positive and negative flexibility potential $pot_\pm$.
-The marginal cost of flexibility is $cost_{\pm}(t) = c(pot_\pm(t), t) / pot_\pm(t)$.
-Using our model above we can analyze this in the following way:
-=#
-
-# analysis_window = 190+1:190+48
-
-# cost_pos, pot_pos, cost_neg, pot_neg = analyze_flexibility_potential(sp_no_flex, analysis_window)
-
-# plot_flexibility(analysis_window, cost_pos, pot_pos, cost_neg, pot_neg)
+all_data = get_all_data(sp_bkg)
+all_data = merge(all_data, Dict((:cost => objective_value(sp_bkg))))
+open(joinpath(savepath, "bkg.json"), "w") do f
+    JSON.print(f,all_data)
+end
 
 #-
 
@@ -177,7 +152,7 @@ plot_results(sp_bkg, pv, wind, demand)
 #-
 plot_heat_layer(sp_bkg, heatdemand)
 #-
-
+all_data = nothing #clean the memory 
 #=
 We can analyze individual scenarios by using the evaluate decision function.
 This allows us to test the system on scenarios that were not present in the original problem definition
@@ -186,18 +161,17 @@ To get a model that corresponds to a single flexibility event (e.g. to investiga
 is reacting to any one event) we can construct outcome models as below. These are normal JuMP models.
 
 =#
+t_max = length(pv) - 24
+F_max = 10000.
+F_min = 3000.
+delta_t = 3*24 # Flex event every week
+pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
+n = round(Int, 10 * pars[:event_per_scen])
 
-prob_scen = @scenario t_xi = 195 s_xi = 1. F_xi = 20. probability = 1.
-evaluate_decision(sp_bkg, bkg_decision, prob_scen)
+scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
 
-#-
 
-outcome = outcome_model(sp_bkg, bkg_decision, prob_scen; optimizer = subproblem_optimizer(sp_bkg))
-set_silent(outcome)
-optimize!(outcome)
-termination_status(outcome)
 
-#-
 
 #=
 Under the hood this uses the evaluate_decision function of stochastic programs that evaluates the cost of a specified scenario given a decision.
@@ -221,10 +195,6 @@ We can start by taking a simple uniform distribution between some maximum flexib
 We can now evaluate the expected cost of running the system determined above with this flexibility distribution.
 =#
 
-sp_no_reg = instantiate(es_no_reg, scens, optimizer = Clp.Optimizer)
-set_silent(sp_no_reg)
-
-evaluate_decision(sp_no_reg, bkg_decision)
 
 #-
 #=
@@ -232,19 +202,12 @@ This is infinite as the system as built above can not actually provide the desir
 One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.
 =#
 
-es_reg = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true)
+es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
 
-sp_reg = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
-set_silent(sp_reg)
+sp_st = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
+set_silent(sp_st)
 
-#-
-#=
-Now we can evaluate the expected cost of flexibility in the system: 
-=#
 
-evaluate_decision(sp_reg, bkg_decision)
-
-#-
 
 #=
 TODO / BUG: This is infinite for some time windows/seeds! This should not happen. (SOLVED?!)
@@ -255,48 +218,22 @@ To do so we fix the investment to the system we have and then optimize the remai
 
 
 investments_nf = get_investments(sp_bkg)
-fix_investment!(sp_no_reg, investments_nf)
-fix_investment!(sp_reg, investments_nf)
 
-optimize!(sp_no_reg)
-optimize!(sp_reg)
+fix_investment!(sp_st, investments_nf)
 
-termination_status(sp_no_reg) # Infeasible with F_max 10000 and 1000
-termination_status(sp_reg)
 
-# no_reg_no_invest_decision = optimal_decision(sp_no_reg)
-reg_no_invest_decision = optimal_decision(sp_reg);
+optimize!(sp_st)
 
-#-
 
-# prob = 1/length(scens)
-# is_optimal = zeros(Bool, length(scens))
+termination_status(sp_st) #sucessfull or infeasible
 
-# Threads.@threads for i in eachindex(scens)
-#     println(i)
-#     s = scens[i]
-#     s_new = @scenario t_xi = s.data[:t_xi] s_xi = s.data[:s_xi] F_xi = 10000. probability = prob
-#     scenario_model = outcome_model(sp_no_reg, optimal_decision(sp_reg), s_new; optimizer = subproblem_optimizer(sp_reg))
-#     set_silent(scenario_model)
-#     optimize!(scenario_model) # Primal infeasible
-#     # println(termination_status(scenario_model))
-#     # println(s_new)
-#     is_optimal[i] = termination_status(scenario_model) == MOI.TerminationStatusCode(1)
-# end
-#-
-#=
-Then evaluating the decision we find much more reasonable values:
-=#
+opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq))
+all_data = get_all_data(sp_st)
+all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp_st))))
+open(joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json"), "w") do f
+    JSON.print(f,all_data)
+end
 
-evaluate_decision(sp_reg, no_reg_no_invest_decision)
-
-#-
-
-evaluate_decision(sp_reg, reg_no_invest_decision)
-
-#-
-
-no_invest_relative_cost_of_flex = evaluate_decision(sp_reg, reg_no_invest_decision) / objective_value(sp_bkg) - 1.
 
 #-
 
