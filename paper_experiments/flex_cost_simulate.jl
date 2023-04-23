@@ -13,13 +13,15 @@ Pkg.activate(basepath)
 using DataFrames
 
 using JSON
+using BSON
 using Clp
 using Statistics;
 using StochasticPrograms
 using Random
 
 include(joinpath(basepath, "src", "sp_model.jl"))
-include(joinpath(basepath, "src", "data_load.jl"));
+include(joinpath(basepath, "src", "data_load.jl"))
+include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"));
 #-
 # ARGS[1] should be "debug" or run_id
 debug = false
@@ -76,75 +78,88 @@ inv_fg = fg["inv"]
 op_fg = fg["op"]
 fg = nothing; #free memory
 #-
-stime = time()
-es_fixed_fg = define_energy_system(pv, wind, demand, heatdemand; p = pars)
-sp = instantiate(es_fixed_fg, scens, optimizer = Clp.Optimizer)
-fix_investment!(sp, inv_fg)
-fix_operation!(sp, op_fg, length(timesteps))
-
-println("Model setup and instantiation performed in $(time() - stime) seconds")
-stime = time()
-set_silent(sp)
-optimize!(sp)
-runtime = time() - stime
-println("Model optimized in $runtime seconds")
-@assert objective_value(sp) != Inf
-stime = time()
-opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
-            #:F_guar_pos => F_pos, :F_guar_neg => F_neg
-            ))
-all_data = get_all_data(sp)
-all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-open(joinpath(savepath, "run_$(F)_$(scen_freq)_$((i-1)%n_runs+1)_fixed_fg.json"), "w") do f
-    JSON.print(f,all_data)
-end
-println("Data extracted and saved in $(time() - stime) seconds")
-all_data = nothing;
-es_fixed_fg = nothing;
-#-
-stime = time()
+#es_no_guar = define_energy_system(pv, wind, demand, heatdemand; p = pars)
 F_pos = F
 F_neg = -F
-es = define_energy_system(pv, wind, demand, heatdemand;
+es_guar = define_energy_system(pv, wind, demand, heatdemand;
 p = pars, guaranteed_flex=true, F_pos=F_pos, F_neg=F_neg)
-
-fix_investment!(sp, inv_fg)
-sp = instantiate(es, scens, optimizer = Clp.Optimizer)
-
-println("Model setup and instantiation performed in $(time() - stime) seconds")
-stime = time()
-set_silent(sp)
-optimize!(sp)
-runtime = time() - stime
-println("Model optimized in $runtime seconds")
-@assert objective_value(sp) != Inf
-stime = time()
-opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
-            :F_guar_pos => F_pos, :F_guar_neg => F_neg
-            ))
-all_data = get_all_data(sp)
-all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-open(joinpath(savepath, "run_$(F)_$(scen_freq)_$((i-1)%n_runs+1)_fixed_fg_inv.json"), "w") do f
-    JSON.print(f,all_data)
-end
-println("Data extracted and saved in $(time() - stime) seconds")
-all_data = nothing;
 #-
-stime = time()
-unfix_investment!(sp)
-optimize!(sp)
-unfix_investment!(sp)
-optimize!(sp)
-runtime = time() - stime
-println("Model optimized in $runtime seconds")
-@assert objective_value(sp) != Inf
-stime = time()
-opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
-            :F_guar_pos => F_pos, :F_guar_neg => F_neg
-            ))
-all_data = get_all_data(sp)
-all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-open(joinpath(savepath, "run_$(F)_$(scen_freq)_$((i-1)%n_runs+1)_unfixed_guar_flex.json"), "w") do f
-    JSON.print(f,all_data)
+filename = joinpath(savepath, "run_$(F)_$(scen_freq)_$((i-1)%n_runs+1)_fixed_fg.bson")
+if !isfile(filename) # Check if the optimization is already complete
+    # useful for reruns if only some failed due to time or memory limits
+    stime = time()
+    sp = instantiate(es_guar, scens, optimizer = Clp.Optimizer)
+    fix_investment!(sp, inv_fg)
+    fix_operation!(sp, op_fg, length(timesteps))
+
+    println("Model setup and instantiation performed in $(time() - stime) seconds")
+    stime = time()
+    set_silent(sp)
+    optimize!(sp)
+    runtime = time() - stime
+    println("Model optimized in $runtime seconds")
+    @assert objective_value(sp) != Inf
+    stime = time()
+    opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
+                #:F_guar_pos => F_pos, :F_guar_neg => F_neg
+                ))
+    all_data = get_all_data(sp)
+    all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+    #=open(filename, "w") do f
+        JSON.print(f,all_data)
+    end=#
+    bson(filename, all_data)
+    println("Data extracted and saved in $(time() - stime) seconds")
+    all_data = nothing;
+else
+    println("Fixed FG optimization for F = $F, scen_freq = $scen_freq and sample $((i-1)%n_runs+1) skipped.")
 end
-println("Data extracted and saved in $(time() - stime) seconds")
+#-
+filename = joinpath(savepath, "run_$(F)_$(scen_freq)_$((i-1)%n_runs+1)_fixed_fg_inv.bson")
+if !isfile(filename)
+    stime = time()
+    sp = instantiate(es_guar, scens, optimizer = Clp.Optimizer)
+    fix_investment!(sp, inv_fg)
+    println("Model setup and instantiation performed in $(time() - stime) seconds")
+    set_silent(sp)
+    stime = time()
+    optimize!(sp)
+    runtime = time() - stime
+    println("Model optimized in $runtime seconds")
+    @assert objective_value(sp) != Inf
+    stime = time()
+    opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
+                #:F_guar_pos => F_pos, :F_guar_neg => F_neg
+                ))
+    all_data = get_all_data(sp)
+    all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+    bson(filename, all_data)
+    println("Data extracted and saved in $(time() - stime) seconds")
+    all_data = nothing;
+else 
+    println("Fixed investment optimization for F = $F, scen_freq = $scen_freq and sample $((i-1)%n_runs+1) skipped.")
+
+end
+#-
+filename = joinpath(savepath, "run_$(F)_$(scen_freq)_$((i-1)%n_runs+1)_unfixed_guar_flex.bson")
+if !isfile(filename)
+    stime = time()
+    sp = instantiate(es_guar, scens, optimizer = Clp.Optimizer)
+    println("Model setup and instantiation performed in $(time() - stime) seconds")
+    stime = time()
+    set_silent(sp)
+    optimize!(sp)
+    runtime = time() - stime
+    println("Model optimized in $runtime seconds")
+    @assert objective_value(sp) != Inf
+    stime = time()
+    opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
+                :F_guar_pos => F_pos, :F_guar_neg => F_neg
+                ))
+    all_data = get_all_data(sp)
+    all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+    bson(filename, all_data)
+    println("Data extracted and saved in $(time() - stime) seconds")
+else
+    println("OF optimization for F = $F, scen_freq = $scen_freq and sample $((i-1)%n_runs+1) skipped.")
+end
