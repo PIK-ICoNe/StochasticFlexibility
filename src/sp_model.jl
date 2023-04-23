@@ -456,10 +456,22 @@ function get_total_investment(data_dict::Dict{String, Any})
         for var in ["pv","wind","storage","heat_storage","heatpump"])
     return total_inv[1]
 end
+
+function get_total_investment(data_dict::Dict{Symbol, Any})    
+    total_inv = sum([data_dict[:params][Symbol("c_"*var)]]*data_dict[:inv][Symbol("u_"*var)] 
+        for var in ["pv","wind","storage","heat_storage","heatpump"])
+    return total_inv[1]
+end
 function get_operation_cost(data_dict::Dict{String, Any})
     op_cost = data_dict["params"]["c_i"]sum(data_dict["op"]["gci"]) - data_dict["params"]["c_o"]sum(data_dict["op"]["gco"]) +
         data_dict["params"]["regularize_lossy_flows"]*(sum(data_dict["op"]["heat_sto_from_bus"])+sum(data_dict["op"]["heat_sto_to_bus"])+
         sum(data_dict["op"]["sto_from_bus"]) + sum(data_dict["op"]["sto_to_bus"]))
+    return op_cost
+end
+function get_operation_cost(data_dict::Dict{Symbol, Any})
+    op_cost = data_dict[:params][:c_i]sum(data_dict[:op][:gci]) - data_dict[:params][:c_o]sum(data_dict[:op][:gco]) +
+        data_dict[:params][:regularize_lossy_flows]*(sum(data_dict[:op][:heat_sto_from_bus])+sum(data_dict[:op][:heat_sto_to_bus])+
+        sum(data_dict[:op][:sto_from_bus]) + sum(data_dict[:op][:sto_to_bus]))
     return op_cost
 end
 
