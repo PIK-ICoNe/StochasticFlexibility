@@ -30,7 +30,7 @@ F_range = 0.:2500.:25000.
 # Analyze availability of flexibility for the background system
 Threads.@threads for F in F_range
     stime = time()
-    es_bkg = define_energy_system(pv, wind, demand, heatdemand; p=pars, override_no_event_per_scen=true, guaranteed_flex=true, F_pos=F, F_neg=F)
+    es_bkg = define_energy_system(pv, wind, demand, heatdemand; p=pars, override_no_event_per_scen=true, guaranteed_flex=true, F_pos=F, F_neg=-F)
     sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
     set_silent(sp_bkg)
     optimize!(sp_bkg)

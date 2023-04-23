@@ -59,32 +59,41 @@ plotpath = joinpath(basepath, "results", run_id)
 savefig(heatmap(F_range, scen_freq, data_matrix[:cost],
     xlabel = "Guaranteed flexibility",
     ylabel = "Expected offset between requests, hours", 
+    clim = (0., maximum(data_matrix[:cost])),
     title = "Cost of flexibility"), joinpath(plotpath, "costs.png"))
 #-
 savefig(heatmap(F_range, scen_freq, data_matrix[:u_wind], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", 
+    ylabel = "Expected offset between requests, hours",
+    clim = (0., maximum(data_matrix[:u_wind])),
     title = "Wind, kWp"), joinpath(plotpath, "u_wind.png"))
 
 savefig(heatmap(F_range, scen_freq,data_matrix[:u_storage], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", title = "Storage, kWh"), joinpath(plotpath, "u_storage.png"))
+    ylabel = "Expected offset between requests, hours",
+    clim = (0., maximum(data_matrix[:u_storage])),
+    title = "Storage, kWh"), joinpath(plotpath, "u_storage.png"))
 
 savefig(heatmap(F_range, scen_freq,data_matrix[:u_heat_storage], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", title = "Storage, kWh"), joinpath(plotpath, "u_heatstorage.png"))
+    ylabel = "Expected offset between requests, hours",
+    clim = (0., maximum(data_matrix[:u_heat_storage])), 
+    title = "Heat storage, kWh"), joinpath(plotpath, "u_heatstorage.png"))
 savefig(heatmap(F_range, scen_freq, data_matrix[:u_pv], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", 
+    ylabel = "Expected offset between requests, hours",
+    clim = (0., maximum(data_matrix[:u_pv])),
     title = "PV, kWp"), joinpath(plotpath, "u_pv.png"))
 
 savefig(heatmap(F_range, scen_freq, data_matrix[:u_heatpump], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", 
-    title = "Wind, kWp"), joinpath(plotpath, "u_heatpump.png"))
+    ylabel = "Expected offset between requests, hours",
+    clim = (0., maximum(data_matrix[:u_heatpump])),
+    title = "Heat pump, kWp"), joinpath(plotpath, "u_heatpump.png"))
 
 savefig(heatmap(F_range, scen_freq, data_matrix[:total_inv], 
     xlabel = "Guaranteed flexibility",
-    ylabel = "Expected offset between requests, hours", 
+    ylabel = "Expected offset between requests, hours",
+    clim = (0., maximum(data_matrix[:total_inv])),
     title = "Total investment"), joinpath(plotpath, "total_inv.png"))
 #-

@@ -1,63 +1,73 @@
 using DataFrames
-using CSV
+
 using JSON
-using Tables
 using Clp
 using Statistics;
 using StochasticPrograms
-
 using Random
 
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
-function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, savefile_lock; F_min = 3000., F_max = 10000., t_max_offset = 24, savefiles = false, savepath = nothing, fixed_invs = nothing, fixed_operation = nothing, F_pos = nothing, F_neg = nothing)
+function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
+    F_min = 3000., F_max = 10000., F_pos=nothing, F_neg=nothing, t_max_offset = 24,
+    savefiles=false, savepath=nothing, fixed_invs=nothing,
+    scens=nothing, sp_bck=nothing)
     if savefiles
         @assert !isnothing(savepath)
     end
-    t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset
-    recovery_time = pars[:recovery_time]
-    @assert scen_freq > recovery_time
-    delta_t = scen_freq - recovery_time
-    pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1)
-    n = round(Int, n_samples * pars[:event_per_scen])
-    println("$n total scenarios, with an average of $(pars[:event_per_scen]) events per full time period")
-    stime = time()
-    scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
-    if !isnothing(F_pos) || !isnothing(F_neg)
-        es = define_energy_system(pv, wind, demand, heatdemand; p = pars, guaranteed_flex=true, F_pos=F_pos, F_neg=F_neg)
-    else
-        es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
+    if isnothing(scens)
+        t_max = minimum((length(pv),length(wind),length(demand),length(heatdemand))) - t_max_offset
+        recovery_time = pars[:recovery_time]
+        @assert scen_freq > recovery_time
+        delta_t = scen_freq - recovery_time
+        pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1)
+        n = round(Int, n_samples * pars[:event_per_scen])
+        println("$n total scenarios, with an average of $(pars[:event_per_scen]) events per full time period")
+        scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
     end
-    sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+    stime = time()
+
+    if isnothing(sp_bck)
+        if !isnothing(F_pos) || !isnothing(F_neg)
+            es = define_energy_system(pv, wind, demand, heatdemand;
+            p = pars, guaranteed_flex=true, F_pos=F_pos, F_neg=F_neg)
+        else
+            es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
+        end
+    
+        sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+    else
+        sp = sp_bck
+        println("Warning: ignoring everything but fixed_inv and using provided stochastic program")
+    end
     # Prevent investment in the heat components if there is no heat demand
     if maximum(heatdemand) == 0.
-        fix!(decision_by_name(sp, 1, :u_heatpump), 0.)
-        fix!(decision_by_name(sp, 1, :u_heat_storage), 0.)
+        fix(decision_by_name(sp, 1, "u_heatpump"), 0.)
+        fix(decision_by_name(sp, 1, "u_heat_storage"), 0.)
     end
     set_silent(sp)
     if !isnothing(fixed_invs)
         fix_investment!(sp, fixed_invs)
+    else
+        unfix_investment!(sp)
     end
-    if !isnothing(fixed_operation)
-        fix_operation!(sp, fixed_operation)
-    end
+
     println("Model setup and instantiation performed in $(time() - stime) seconds")
     stime = time()
     optimize!(sp)
     runtime = time() - stime
     println("Model optimized in $runtime seconds")
-    lock(savefile_lock)
+    @assert objective_value(sp) != Inf
     if savefiles
         opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
             :F_guar_pos => F_pos, :F_guar_neg => F_neg))
         all_data = get_all_data(sp)
         all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-        open(joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json"), "w") do f
+        open(savepath, "w") do f
             JSON.print(f,all_data)
-        end
+        end# joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json")
     end
-    unlock(savefile_lock)
     return sp, runtime
 end
 

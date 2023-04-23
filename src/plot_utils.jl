@@ -1,14 +1,9 @@
 using Plots;gr()
 using SankeyPlots
 
-function plot_results(sp_data, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=["gci", "gco"], storage_vars=[])
-
+function plot_results(sp_data::Dict{String, Any}, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=["gci", "gco"], storage_vars=[])
     u_pv = sp_data["inv"]["u_pv"]
     u_wind = sp_data["inv"]["u_wind"]
-    u_storage = sp_data["inv"]["u_storage"]
-    u_heatpump = sp_data["inv"]["u_heatpump"]
-    u_heat_storage = sp_data["inv"]["u_heat_storage"]
-    
     plt_sto = plot(; legend = :outertopright)
     plt_invest = plot(; legend = :outertopright)
     plt = plot(; legend = :outertopright)
@@ -29,6 +24,34 @@ function plot_results(sp_data, pv, w, el_d; plot_window = 1:length(pv), s=1, el_
         if t_xi in plot_window
             var2 = var*"2"
             plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), sp_data["rec"][s][var2], label=var*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
+        end
+    end
+    return plot(plt_invest, plt, plt_sto, layout = (3,1))
+end
+
+function plot_results(sp_data::Dict{Symbol, Any}, pv, w, el_d; plot_window = 1:length(pv), s=1, el_balance_vars=[:gci, :gco], storage_vars=[])
+    u_pv = sp_data[:inv][:u_pv]
+    u_wind = sp_data[:inv][:u_wind]
+    plt_sto = plot(; legend = :outertopright)
+    plt_invest = plot(; legend = :outertopright)
+    plt = plot(; legend = :outertopright)
+    plot!(plt_invest, plot_window, pv[plot_window] .* u_pv, label="PV")
+    plot!(plt_invest, plot_window, w[plot_window] .* u_wind, label="Wind")
+    plot!(plt_invest, plot_window, el_d[plot_window], label="Electrical demand")
+    t_xi = sp_data[:scen][s][:t_xi]
+    recovery_time = sp_data[:params][:recovery_time]
+
+    stor_charge = sp_data[:op][:sto_soc]
+    plot!(plt_sto, plot_window, stor_charge[plot_window], label="global storage charge")
+    if t_xi in plot_window
+        plot!(plt_sto, (t_xi):(t_xi+recovery_time), sp_data[:rec][s][:sto_soc2], label=string("stochastic storage charge")*string(s), linestyle=:dash, linewidth=2)
+    end
+
+    for var in el_balance_vars
+        plot!(plt, plot_window, sp_data[:op][var][plot_window], label=string(var))
+        if t_xi in plot_window
+            var2 = string(var)*"2"
+            plot!(plt, (t_xi+1):(t_xi+recovery_time + 1), sp_data[:rec][s][Symbol(var2)], label=string(var)*" 2nd stage, s = "*string(s), linestyle=:dash, linewidth=2)
         end
     end
     return plot(plt_invest, plt, plt_sto, layout = (3,1))
@@ -241,6 +264,7 @@ function plot_scenario_distribution(scenarios; by_sign = false)
     end 
 end
 
+using VegaLite
 function plot_flex_sources(sp_data, pv, wind; timesteps = 1:24*365)
     pos_cur = sp_data["op"]["pv_cur"][timesteps[begin:end-1]] .+ sp_data["op"]["wind_cur"][timesteps[begin:end-1]]
     neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data["inv"]["u_pv"] .- wind[timesteps[begin:end-1]].*sp_data["inv"]["u_wind"]
@@ -259,4 +283,26 @@ function plot_flex_sources(sp_data, pv, wind; timesteps = 1:24*365)
     p1 = areaplot(timesteps[begin:end-1], [pos_cur, pos_sto, pos_heat_sto], fillalpha = [0.5 0.5 0.5])
     p2 = areaplot(timesteps[begin:end-1], [-neg_cur, -neg_sto, -neg_heat_sto], fillalpha = [0.5 0.5 0.5])
     plot(p1, p2, layout = (1,2))
+end
+
+function plot_flex(sp_data, pv, wind; timesteps = 1:24*365)
+    pos_cur = sp_data["op"]["pv_cur"][timesteps[begin:end-1]] .+ sp_data["op"]["wind_cur"][timesteps[begin:end-1]]
+    neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data["inv"]["u_pv"] .- wind[timesteps[begin:end-1]].*sp_data["inv"]["u_wind"]
+    pos_sto = sp_data["op"]["sto_soc"][timesteps[begin+1:end]]
+    neg_sto = pos_sto .- sp_data["inv"]["u_storage"]
+    COP = COP = sp_data["params"]["COP"]
+    pos_heat_sto = sp_data["op"]["heat_sto_soc"][timesteps[begin+1:end]]/COP
+    neg_heat_sto = pos_heat_sto .- sp_data["inv"]["u_heat_storage"]/COP
+    #=plt = plot(layout = (1,2))
+    plot!(plt[1], pos_cur, fill = (0, 0.5))
+    plot!(plt[1], pos_sto, fill = (0, 0.5))
+    plot!(plt[1], pos_heat_sto, fill = (0, 0.5))
+    plot!(plt[2], neg_cur, fill = (0, 0.5))
+    plot!(plt[2], neg_sto, fill = (0, 0.5))
+    plot!(plt[2], neg_heat_sto, fill = (0, 0.5))=#
+
+    df_pos = DataFrame(time = timesteps[begin:end-1], cur = pos_cur, sto = pos_sto, heat_sto = pos_heat_sto)
+    df_neg = DataFrame(time = timesteps[begin:end-1], cur = neg_cur, sto = neg_sto, heat_sto = neg_heat_sto)
+    stack(df_pos,[:cur, :sto, :heat_sto]) |> @vlplot(:area, x = :time, y = {value, stack = :zero}, color="variable:n")
+    return df_pos, df_neg
 end
