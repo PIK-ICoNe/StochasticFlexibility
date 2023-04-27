@@ -10,6 +10,7 @@ using DataFrames
 using CSV
 using Clp
 using JSON
+using BSON
 using Statistics;
 
 
@@ -164,66 +165,42 @@ F_max = 10000.
 F_min = 3000.
 delta_t = 3*24 # Flex event every week
 pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
-n_samples = 10 #20
-n = round(Int, n_samples * pars[:event_per_scen])
+n_samples = [collect(15:5:35); collect(40:10:90); collect(100:25:175)]
+for ns in n_samples
+    n = round(Int, ns * pars[:event_per_scen])
+    scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
+    es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
+    sp_st = instantiate(es_st, scens, optimizer = Clp.Optimizer)
+    set_silent(sp_st)
+    optimize!(sp_st)
+    println("termination_status=", termination_status(sp_st)) #sucessfull or infeasible
 
-scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
-
-
-
-
-#=
-Under the hood this uses the evaluate_decision function of stochastic programs that evaluates the cost of a specified scenario given a decision.
-
-We can go further if we introduce a certain distribution of flexibility demands.
-Then we can choose to operate the system in such a way that the expected cost, including the expected cost of flexibility, is minimized.
-This is exactly a two stage stochastic programming problem with $c(F,t)$ as the second stage.
-
-We can start by taking a simple uniform distribution between some maximum flexibility demand that can occur at any time that leaves enough space for the recovery window:
-=#
-
-# n = 100
-# F_max = average_hourly_demand * 0.1 # Have unaticipated demand equal to 10% of our typical demand
-# t_max = length(pv) - es.parameters[2].defaults[:recovery_time]
-
-# scens = simple_flex_sampler(n, F_max, t_max);
-
-#-
-
-#=
-We can now evaluate the expected cost of running the system determined above with this flexibility distribution.
-=#
-
-
-#-
-#=
-This is infinite as the system as built above can not actually provide the desired flexibility at all times.
-One way to deal with this problem is to regularize the problem, by allowing a heavily penalized deviation from satisfying the extra demand.
-=#
-
-es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
-
-sp_st = instantiate(es_st, scens, optimizer = Clp.Optimizer)
-set_silent(sp_st)
-
-investments_nf = get_investments(sp_bkg)
-
-fix_investment!(sp_st, investments_nf)
-
-
-optimize!(sp_st)
-
-
-termination_status(sp_st) #sucessfull or infeasible
-
-opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq))
-all_data = get_all_data(sp_st)
-all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp_st))))
-open(joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json"), "w") do f
-    JSON.print(f,all_data)
+    opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq))
+    all_data = get_all_data(sp_st)
+    all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp_st))))
+    bson("run_$(n_samples)_$(scen_freq).bson", all_data)
 end
 
+ns = n_samples[end]
+es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
+sp_st = instantiate(es_st, scens, optimizer = Clp.Optimizer)
+fix_investment!(sp_st, get_investments(sp_bkg))
+set_silent(sp_st)
+optimize!(sp_st)
 
+costs = zeros(length(n_samples))
+u_pv = zeros(length(n_samples))
+u_wind = zeros(length(n_samples))
+u_storage = zeros(length(n_samples))
+u_heat_storage = zeros(length(n_samples))
+u_heatpump = zeros(length(n_samples))
+
+for (i,ns) in enumerate(n_samples) 
+    opt = BSON.load("run_$(n_samples)_$(scen_freq).bson")
+    costs[i]= opt[:cost]
+    u_pv[i]= opt[:inv][:u_pv]
+    u_wind
+end
 #-
 
 #=
