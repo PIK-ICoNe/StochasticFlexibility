@@ -196,6 +196,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
             if guaranteed_flex
                 @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP >= F_pos)
                 @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_sto_soc[t+1] - u_heat_storage)/COP <= F_neg)
+                # should include heatpump constraint, but we do not consider it here
             end
             
             # Investment costs ...
@@ -462,6 +463,12 @@ function get_total_investment(data_dict::Dict{Symbol, Any})
         for var in ["pv","wind","storage","heat_storage","heatpump"])
     return total_inv[1]
 end
+function get_operation_cost(sp)
+    op_cost = sp.stages[1].parameters[:c_i]*sum(value.(sp[1, :gci])) - sp.stages[1].parameters[:c_o]*sum(value.(sp[1, :gco])) +
+    sp.stages[1].parameters[:regularize_lossy_flows]*(sum(value.(sp[1, :heat_sto_from_bus]))+sum(value.(sp[1, :heat_sto_to_bus]))+
+        sum(value.(sp[1, :sto_from_bus])) + sum(value.(sp[1, :sto_to_bus])))
+    return op_cost
+end
 function get_operation_cost(data_dict::Dict{String, Any})
     op_cost = data_dict["params"]["c_i"]sum(data_dict["op"]["gci"]) - data_dict["params"]["c_o"]sum(data_dict["op"]["gco"]) +
         data_dict["params"]["regularize_lossy_flows"]*(sum(data_dict["op"]["heat_sto_from_bus"])+sum(data_dict["op"]["heat_sto_to_bus"])+
@@ -474,14 +481,42 @@ function get_operation_cost(data_dict::Dict{Symbol, Any})
         sum(data_dict[:op][:sto_from_bus]) + sum(data_dict[:op][:sto_to_bus]))
     return op_cost
 end
+function get_servicing_cost(sp)
+    total_inv = sum([data_dict[:params][Symbol("c_"*var)]]*data_dict[:inv][Symbol("u_"*var)] 
+        for var in ["pv","wind","storage","heat_storage","heatpump"])
+    op_cost = data_dict[:params][:c_i]sum(data_dict[:op][:gci]) - data_dict[:params][:c_o]sum(data_dict[:op][:gco]) +
+        data_dict[:params][:regularize_lossy_flows]*(sum(data_dict[:op][:heat_sto_from_bus])+sum(data_dict[:op][:heat_sto_to_bus])+
+        sum(data_dict[:op][:sto_from_bus]) + sum(data_dict[:op][:sto_to_bus]))
+    return data_dict[:cost]-total_inv-op_cost
+end
 
-function get_all_data(sp)
+function get_servicing_cost(sp)
+    total_inv = sp.stages[1].parameters[:c_pv]*value.(sp[1, :u_pv]) + 
+                sp.stages[1].parameters[:c_wind]*value.(sp[1, :u_wind]) +
+                sp.stages[1].parameters[:c_storage]*value.(sp[1, :u_storage]) +
+                sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
+                sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
+    op_cost = sp.stages[1].parameters[:c_i]*sum(value.(sp[1, :gci])) - sp.stages[1].parameters[:c_o]*sum(value.(sp[1, :gco])) +
+    sp.stages[1].parameters[:regularize_lossy_flows]*(sum(value.(sp[1, :heat_sto_from_bus]))+sum(value.(sp[1, :heat_sto_to_bus]))+
+        sum(value.(sp[1, :sto_from_bus])) + sum(value.(sp[1, :sto_to_bus])))
+    return objective_value(sp)-total_inv-op_cost
+end
+
+
+function get_all_data(sp; rec = true, scen = true)
     inv_d = get_investments(sp)
     op_d = get_operation(sp)
     n = length(scenarios(sp))
-    rec_d = [get_recovery(sp, i) for i in 1:n]
-    scen_d = [Dict((:probability => s.probability, :t_xi => s.data[:t_xi], 
+    if rec
+        rec_d = [get_recovery(sp, i) for i in 1:n]
+    else rec_d = []
+    end
+    if scen
+        scen_d = [Dict((:probability => s.probability, :t_xi => s.data[:t_xi], 
         :F_xi => s.data[:F_xi], :s_xi => s.data[:s_xi])) for s in scenarios(sp)]
+    else 
+        scen_d = []
+    end
     params = merge(sp.stages[1].parameters, sp.stages[2].parameters)
     return Dict((:inv => inv_d, :op => op_d, :rec => rec_d, :scen => scen_d, :params => params))
 end
