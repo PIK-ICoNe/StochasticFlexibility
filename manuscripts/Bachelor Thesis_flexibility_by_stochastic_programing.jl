@@ -179,14 +179,21 @@ for ns in n_samples
     all_data = get_all_data(sp_st)
     all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp_st))))
     bson("run_$(n_samples)_$(scen_freq).bson", all_data)
+    if ns == n_samples[end]
+        ns = n_samples[end]
+        es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
+        sp_st = instantiate(es_st, scens, optimizer = Clp.Optimizer)
+        fix_investment!(sp_st, get_investments(sp_bkg))
+        set_silent(sp_st)
+        optimize!(sp_st)
+        opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq))
+        all_data = get_all_data(sp_st)
+        all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp_st))))
+        bson("run_$(n_samples)_$(scen_freq)_fixed_inv.bson", all_data)
+    end
 end
 
-ns = n_samples[end]
-es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
-sp_st = instantiate(es_st, scens, optimizer = Clp.Optimizer)
-fix_investment!(sp_st, get_investments(sp_bkg))
-set_silent(sp_st)
-optimize!(sp_st)
+
 
 costs = zeros(length(n_samples))
 u_pv = zeros(length(n_samples))
@@ -199,99 +206,13 @@ for (i,ns) in enumerate(n_samples)
     opt = BSON.load("run_$(n_samples)_$(scen_freq).bson")
     costs[i]= opt[:cost]
     u_pv[i]= opt[:inv][:u_pv]
-    u_wind
+    u_wind = 
 end
-#-
 
-#=
-It is interesting to note that this way servicing the flexibility is actually not very expensive
-compared to the baseline cost of the system if there were no flexibility demands, with the relative cost of flexibility coming in at 0.2% here.
 
-We can also again evaluate the amount of flexibility available at each point in time, and the associated cost:
-=#
+#finishing the loop above 
+#creating the plots (see notes)
+#flex potential function -> read two bson files naive_flex_potential -> look in the parameters, it returns f_pos and f_neg
 
-# To find flexibility potentials we right now have to use the unregularized model:
-# cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex = analyze_flexibility_potential(sp_flex, analysis_window)
 
-# plot_flexibility(analysis_window, cost_pos_flex, pot_pos_flex, cost_neg_flex, pot_neg_flex)
-
-#-
-#=
-This shows that the model is not actually able to guarantee that there is flexibility at all times. However, it dramatically increases the amount of available flexibility:
-=#
-
-# plt_av = plot();
-# flexibility_availability!(plt_av, pot_pos, label = "positive flexbility unaware", c = :red);
-# flexibility_availability!(plt_av, pot_pos_flex, label = "positive flexibility aware", c = :green);
-# flexibility_availability!(plt_av, pot_neg, label = "negative flexibility unaware", c = :red);
-# flexibility_availability!(plt_av, pot_neg_flex, label = "negative flexibility aware", c = :green);
-# plt_av
-
-#-
-
-#=
-We can of course also optimize the overall system investment to take flexibility into account.
-=#
-
-unfix_investment!(sp_st, investments_nf)
-
-optimize!(sp_st)
-
-termination_status(sp_st)
-
-reg_invest_decision = optimal_decision(sp_st);
-
-#=
-Then the relative cost of the system exposed to flexibility is further reduced:
-=#
-
-evaluate_decision(sp_reg, no_reg_invest_decision)
-#-
-
-evaluate_decision(sp_reg, reg_invest_decision)
-
-#-
-
-invest_relative_cost_of_flex = evaluate_decision(sp_reg, reg_invest_decision) / objective_value(sp_bkg) - 1.
-
-#-
-
-#=
-Considering the flexiblity demands at investment time, rather than only during operations lowers the cost of flexibility by:
-=#
-
-invest_relative_cost_of_flex / no_invest_relative_cost_of_flex - 1.
-
-#=
-27% for this toy model.
-
-# Further thoughts
-
-There are numerous directions to go from here.
-
-This document focused on (a regularized version of) the expected price of flexibility.
-Another possibility would be to make a minimum amount of available flexibility a constraint.
-There are algorithms taht concern stochastic constraints that might be useful to explore then.
-
-A general question with all of this is: We are sampling the space of possible events.
-The operational schedule we obtain will probably contain moments at which there is no flexibility.
-The sample might miss the few hours at which flexibility is hardest to come by.
-
-It is unclear (and requires further analysis) how much of a problem that is. E.g. maybe the flex aware schedule
-based on a sample will not have flexibility at some hours, but a very minor adjustment would.
-In partiuclar I consider it plausible that the investment decisions are not strongly affected by these gaps,
-as long as sufficiently many representative scenarios are sampled.
-
-In evaluating the quality of the sampling approach it might also be appropriate to evaluate the assumption of
-a schedule based on perfect foresight for everything _but_ the felxiblity. A proper validation set up would also
-consider the weather and demand uncertainties.
-
-A general choice we have is whether to think of the flexibility as for the system itself, or for selling as an auxilliary service.
-In the former case we can think of the regularizer as buying flexibility on the open market once providing it ourselfs becomes to expensive.
-For the latter we would need to think about potential products that can reasonably be offered/modelled in the stochastic program.
-E.g. we can not simply say we are offering the full flexibility potential as that is a quantity that is hard to evaluate.
-
-Given multiple energy systems that trade with each other we could try to analyze a market of such systems as well
-
-=#
 
