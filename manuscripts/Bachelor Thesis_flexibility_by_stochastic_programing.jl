@@ -4,7 +4,7 @@ basepath = realpath(joinpath(@__DIR__, ".."))
 
 using Pkg
 Pkg.activate(basepath)
-#Pkg.instantiate()
+Pkg.instantiate()
 
 using DataFrames
 using CSV
@@ -61,7 +61,7 @@ pv = pv_data[timesteps .+ offset, 1]
 wind = wind_data[timesteps .+ offset, 1]
 demand = demand_data[timesteps .+ offset, 1]
 heatdemand = heatdemand_data[timesteps .+ offset, 1]
-heatdemand = zeros(length(timesteps)) #if heatdemand is not needed 
+#heatdemand = zeros(length(timesteps)) #if heatdemand is not needed 
 
 t_max = minimum((length(pv), length(wind), length(demand), length(heatdemand))) - t_max_offset #using the longest possible timeintervall 
 
@@ -93,13 +93,11 @@ pars[:recovery_time] = recovery_time
 pars[:c_storage] = 600.
 pars[:c_pv] = 800.
 pars[:c_wind] = 2500.
-pars[:c_sto_op] = 0.00001
-pars[:penalty] = 1000000.
 pars[:c_i] = 0.4
 pars[:c_o] = 0.04
 pars[:c_heat_storage] = 400.
 pars[:asset_lifetime] = 20.
-pars[:c_heatpump] = 457.; #kW heat -> mayve wrong and it should be 1600
+pars[:c_heatpump] = 457.; #kW heat -> mayve wrong and it should be 1600 kW electricity
 
 
 savepath = joinpath(basepath, "results")
@@ -140,7 +138,7 @@ bkg_decision = optimal_decision(sp_bkg)
 
 objective_value(sp_bkg)
 
-all_data = get_all_data(sp_bkg)
+all_data = get_all_data(sp_bkg, rec = false, scen = false)
 all_data = merge(all_data, Dict((:cost => objective_value(sp_bkg))))
 open(joinpath(savepath, "bkg.json"), "w") do f
     JSON.print(f,all_data)
@@ -148,9 +146,9 @@ end
 
 #-
 
-plot_results(sp_bkg, pv, wind, demand)
+plot_results(all_data, pv, wind, demand)
 #-
-plot_heat_layer(sp_bkg, heatdemand)
+plot_heat_layer(all_data, heatdemand)
 #-
 all_data = nothing #clean the memory 
 #=
@@ -166,7 +164,8 @@ F_max = 10000.
 F_min = 3000.
 delta_t = 3*24 # Flex event every week
 pars[:event_per_scen] = t_max / (delta_t + recovery_time + 1);
-n = round(Int, 10 * pars[:event_per_scen])
+n_samples = 10 #20
+n = round(Int, n_samples * pars[:event_per_scen])
 
 scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
 
@@ -204,18 +203,8 @@ One way to deal with this problem is to regularize the problem, by allowing a he
 
 es_st = define_energy_system(pv, wind, demand, heatdemand; p = pars, regularized = true) #defining the stochastic energy system with flexibility
 
-sp_st = instantiate(es_reg, scens, optimizer = Clp.Optimizer)
+sp_st = instantiate(es_st, scens, optimizer = Clp.Optimizer)
 set_silent(sp_st)
-
-
-
-#=
-TODO / BUG: This is infinite for some time windows/seeds! This should not happen. (SOLVED?!)
-
-This cost is of course completely dominated by the regularizer. However, using stochastic programming we can optimize the operational schedule to directly optimize this expected cost.
-To do so we fix the investment to the system we have and then optimize the remaining variables:
-=#
-
 
 investments_nf = get_investments(sp_bkg)
 
@@ -267,17 +256,13 @@ This shows that the model is not actually able to guarantee that there is flexib
 We can of course also optimize the overall system investment to take flexibility into account.
 =#
 
-unfix_investment!(sp_no_reg, investments_nf)
-unfix_investment!(sp_reg, investments_nf)
+unfix_investment!(sp_st, investments_nf)
 
-optimize!(sp_no_reg)
-optimize!(sp_reg)
+optimize!(sp_st)
 
-termination_status(sp_no_reg)
-termination_status(sp_reg)
+termination_status(sp_st)
 
-no_reg_invest_decision = optimal_decision(sp_no_reg)
-reg_invest_decision = optimal_decision(sp_reg);
+reg_invest_decision = optimal_decision(sp_st);
 
 #=
 Then the relative cost of the system exposed to flexibility is further reduced:
