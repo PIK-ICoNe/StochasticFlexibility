@@ -132,8 +132,8 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 max_pv = p[:max_pv]
                 max_wind = p[:max_wind]
                 regularize_lossy_flows = reg_lossy_flows
-                lifetime_factor = asset_lifetime * 365 * 24 / number_of_hours
             end
+            lifetime_factor = asset_lifetime * 365 * 24 / number_of_hours
             # Component units to be invested in, kWp
             @decision(model, u_pv >= 0)
             @decision(model, u_wind >= 0)
@@ -443,25 +443,28 @@ function get_penalized_scenarios(sp; scens = nothing)
     return penalized
 end
 
-function get_total_investment(sp)    
+function get_total_investment(sp; number_of_hours = 24*365)    
     total_inv = sp.stages[1].parameters[:c_pv]*value.(sp[1, :u_pv]) + 
                 sp.stages[1].parameters[:c_wind]*value.(sp[1, :u_wind]) +
                 sp.stages[1].parameters[:c_storage]*value.(sp[1, :u_storage]) +
                 sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
                 sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
-    return total_inv/sp.stages[1].parameters[:lifetime_factor]
+    lifetime_factor = sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours
+    return total_inv/lifetime_factor
 end
 
-function get_total_investment(data_dict::Dict{String, Any})    
+function get_total_investment(data_dict::Dict{String, Any}; number_of_hours = 24*365)    
     total_inv = sum([data_dict["params"]["c_"*var]]*data_dict["inv"]["u_"*var] 
         for var in ["pv","wind","storage","heat_storage","heatpump"])
-    return total_inv[1]/data_dict["params"]["lifetime_factor"]
+    lifetime_factor = data_dict["params"]["asset_lifetime"] * 365 * 24 / number_of_hours
+    return total_inv[1]/lifetime_factor
 end
 
-function get_total_investment(data_dict::Dict{Symbol, Any})    
+function get_total_investment(data_dict::Dict{Symbol, Any}; number_of_hours = 24*365)    
     total_inv = sum([data_dict[:params][Symbol("c_"*var)]]*data_dict[:inv][Symbol("u_"*var)] 
         for var in ["pv","wind","storage","heat_storage","heatpump"])
-    return total_inv[1]/data_dict[:params][:lifetime_factor]
+    lifetime_factor = data_dict[:params][:asset_lifetime]* 365 * 24 / number_of_hours
+    return total_inv[1]/lifetime_factor
 end
 function get_operation_cost(sp)
     op_cost = sp.stages[1].parameters[:c_i]*sum(value.(sp[1, :gci])) - sp.stages[1].parameters[:c_o]*sum(value.(sp[1, :gco])) +
@@ -481,24 +484,15 @@ function get_operation_cost(data_dict::Dict{Symbol, Any})
         sum(data_dict[:op][:sto_from_bus]) + sum(data_dict[:op][:sto_to_bus]))
     return op_cost
 end
-function get_servicing_cost(data_dict::Dict{Symbol, Any})
-    total_inv = sum([data_dict[:params][Symbol("c_"*var)]]*data_dict[:inv][Symbol("u_"*var)] 
-        for var in ["pv","wind","storage","heat_storage","heatpump"])
-    op_cost = data_dict[:params][:c_i]sum(data_dict[:op][:gci]) - data_dict[:params][:c_o]sum(data_dict[:op][:gco]) +
-        data_dict[:params][:regularize_lossy_flows]*(sum(data_dict[:op][:heat_sto_from_bus])+sum(data_dict[:op][:heat_sto_to_bus])+
-        sum(data_dict[:op][:sto_from_bus]) + sum(data_dict[:op][:sto_to_bus]))
+function get_servicing_cost(data_dict::Dict{Symbol, Any}; number_of_hours = 24*365)
+    total_inv = get_total_investment(data_dict, number_of_hours=number_of_hours)
+    op_cost = get_operation_cost(data_dict)
     return data_dict[:cost]-total_inv-op_cost
 end
 
-function get_servicing_cost(sp)
-    total_inv = sp.stages[1].parameters[:c_pv]*value.(sp[1, :u_pv]) + 
-                sp.stages[1].parameters[:c_wind]*value.(sp[1, :u_wind]) +
-                sp.stages[1].parameters[:c_storage]*value.(sp[1, :u_storage]) +
-                sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
-                sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
-    op_cost = sp.stages[1].parameters[:c_i]*sum(value.(sp[1, :gci])) - sp.stages[1].parameters[:c_o]*sum(value.(sp[1, :gco])) +
-    sp.stages[1].parameters[:regularize_lossy_flows]*(sum(value.(sp[1, :heat_sto_from_bus]))+sum(value.(sp[1, :heat_sto_to_bus]))+
-        sum(value.(sp[1, :sto_from_bus])) + sum(value.(sp[1, :sto_to_bus])))
+function get_servicing_cost(sp; number_of_hours = 24*365)
+    total_inv = get_total_investment(sp, number_of_hours = number_of_hours)
+    op_cost = get_operation_cost(sp)
     return objective_value(sp)-total_inv-op_cost
 end
 
