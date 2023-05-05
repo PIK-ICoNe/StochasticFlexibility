@@ -84,7 +84,7 @@ function plot_raw_heat_layer(sp_data, heatdemand; plot_span = 1:length(heatdeman
 
 end
 
-function plot_recovery_window_deviation(sp_data; s = 1)
+function plot_recovery_window_deviation(sp_data::Dict{String, Any}; s = 1)
     plt_gc = plot()
     plt_sto = plot()
     t_xi = sp_data["scen"][s]["t_xi"]
@@ -100,6 +100,25 @@ function plot_recovery_window_deviation(sp_data; s = 1)
     
     plot!(plt_sto, stor_charge2-stor_charge, label = "soc2-soc")
 
+
+    plot(plt_gc, plt_sto, layout = (2, 1))
+end
+
+function plot_recovery_window_deviation(sp; s = 1)
+    plt_gc = plot()
+    plt_sto = plot()
+    t_xi = scenarios(sp)[s].data.t_xi
+    recovery_time = sp.stages[2].parameters[:recovery_time]
+    plot!(plt_gc, value.(sp[1, :flow_energy2heat])[t_xi+1:t_xi+1+recovery_time], label = "global flow_energy2heat")
+    plot!(plt_gc, value.(sp[2, :flow_energy2heat2], s), label = "stochastic flow_energy2heat")
+    plot!(plt_gc, -value.(sp[1, :gci])[t_xi+1:t_xi+1+recovery_time]+value.(sp[2, :gci2], s), label = "global grid connection use")
+    plot!(plt_gc, value.(sp[2, :gco2], s) - value.(sp[1, :gco])[t_xi+1:t_xi+1+recovery_time], xlabel = "time after the event, h", label = "stochastic grid connection use")
+    #plot!(plt_gc, -value.(sp[1, :gco])[t_xi+1:t_xi+recovery_time]+value.(sp[2, :gco2], s), xlabel = "time after the event, h", label = "gco2-gco")
+    
+    stor_charge = value.(sp[1, :sto_soc])[t_xi+1:t_xi+1+recovery_time]
+    stor_charge2 = value.(sp[2, :sto_soc2], s)
+    
+    plot!(plt_sto, stor_charge2-stor_charge, label = "soc2-soc")
 
     plot(plt_gc, plt_sto, layout = (2, 1))
 end
