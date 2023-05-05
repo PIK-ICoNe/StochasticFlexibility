@@ -46,7 +46,7 @@ if !isdir(joinpath(basepath, "results", run_id))
     mkdir(joinpath(basepath, "results", run_id))
 end
 savepath = joinpath(basepath, "results", run_id)
-n_samples = 20
+n_samples = 20 # base n_samples for scen_freq = 48
 debug && (scen_freq = 3+pars[:recovery_time])
 if debug
     F = 5000.
@@ -64,7 +64,8 @@ else
 end
 #-
 println("scen_freq = $(sf), F = $(F)")
-param_id = "$(sf)_$(F)"
-savefile_lock = ReentrantLock()
-sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, sf, savefile_lock, savefiles = true, savepath = savepath, F_pos = F, F_neg = -F)
+
+filepath = joinpath(savepath, "conv_run_$(F)_$(scen_freq).bson")
+sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, round(Int, n_samples*sf/48), sf, savefiles = true, savepath = savepath, 
+F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true)
 println("Runtime in seconds: $(time()-stime)")
