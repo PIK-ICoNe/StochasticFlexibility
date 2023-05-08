@@ -51,7 +51,7 @@ debug && (scen_freq = 3+pars[:recovery_time])
 if debug
     n, F = 2, 5000.
 else
-    n_samples = [collect(15:5:35); collect(40:10:90); collect(100:25:175)]
+    n_samples = [collect(15:5:35); collect(40:10:90); collect(100:25:150)]
     F_range = 5000.:5000.:25000.
     @assert length(n_samples)*length(F_range) == Base.parse(Int,(ENV["SLURM_ARRAY_TASK_COUNT"]))
     sample_param = []
@@ -64,7 +64,9 @@ else
 end
 #-
 println("n_samples = $(n), F = $(F)")
-param_id = "$(n)_$(F)"
-savefile_lock = ReentrantLock()
-sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n, scen_freq, savefile_lock, savefiles = true, savepath = savepath, F_pos = F, F_neg = -F)
+#param_id = "$(n)_$(F)"
+filepath = joinpath(savepath, "conv_run_$(F)_$(scen_freq)_$(n).bson")
+sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n, scen_freq, 
+savefiles = true, savepath = filepath, 
+F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true)
 println("Runtime in seconds: $(time()-stime)")

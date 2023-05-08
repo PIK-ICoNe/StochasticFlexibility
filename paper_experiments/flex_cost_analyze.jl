@@ -20,13 +20,13 @@ include(joinpath(basepath, "src", "plot_utils.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
 #-
-n_samples = 20
+n_samples = 50
 params = [(5000., 48), (7500., 144), (25000., 240)]
-n_runs = 20
+n_runs = 3
 timesteps = 1:24*365
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat = true);
 pars[:inv_budget] = 10^10;
-savepath = joinpath(basepath, "results/flex_cost_18_04")
+savepath = joinpath(basepath, "results/flex_cost_26_04")
 filetype = "bson"
 #-
 if isfile(joinpath(savepath, "full_cost_data.csv")) && isfile(joinpath(savepath, "full_inv_data.csv"))
@@ -39,18 +39,28 @@ else
         F, sf = params[i]
         for n in 1:n_runs
             for m in ("fixed_fg", "fixed_fg_inv", "unfixed_guar_flex")
-                p = joinpath(savepath, "run_$(F)_$(sf)_$(n)_$(m)", filetype)
+                p = joinpath(savepath, "run_$(F)_$(sf)_$(n)_$(m)."*filetype)
                 if isfile(p)
-                    opt = JSON.parsefile(p)
-                    total_cost = opt["cost"]
+                    if filetype == "json"
+                        opt = JSON.parsefile(p)
+                        total_cost = opt["cost"]
+                    elseif filetype == "bson"
+                        opt = BSON.load(p)
+                        total_cost = opt[:cost]
+                    end
                     CI = get_total_investment(opt)
                     CO = get_operation_cost(opt)
                     CR = total_cost - CI - CO
                     append!(df_costs, DataFrame(p = i, total_cost = total_cost,
                         CI = CI, CO = CO, CR = CR, sample_num = n, mode = m))
                     if m !== "fixed_inv_fg"
-                        append!(df_inv, DataFrame(Dict((vcat([var => opt["inv"][var] for var in string.(inv_vars)], 
+                        if filetype == "json"
+                            append!(df_inv, DataFrame(Dict((vcat([var => opt["inv"][var] for var in string.(inv_vars)], 
                             "mode" => m, "sample_num" => n, "p" => i)))))
+                        elseif filetype == "bson"
+                            append!(df_inv, DataFrame(Dict((vcat([string(var) => opt[:inv][var] for var in inv_vars], 
+                            "mode" => m, "sample_num" => n, "p" => i)))))
+                        end
                     end
                     opt = nothing;
                 else
@@ -68,7 +78,7 @@ end
 base_model = JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_0.0.json"))
 CB = base_model["cost"]
 CIB = get_total_investment(base_model)
-COB = get_operation_cost(base_model)
+COB = get_operation_cost(base_model) #TODO check why COB+CIB!=CB
 inv_base = base_model["inv"]
 P = base_model["params"]
 base_model = nothing;
@@ -112,7 +122,9 @@ barlabels = ["" for i in 1:size(df)[1]];
 for i in 1:size(df)[1]
     b = ["Fixed FG", "Fixed FG Inv", "OF"]#[L"OF_{|\overline{FG}}", L"OF_{|\overline{Inv}_{fg}}",L"OF"]
     if df[i, :var] == 5
-        barlabels[i] = b[df[i, :mode]]
+        if df[i, :p] != 0
+            barlabels[i] = b[df[i, :mode]]
+        end
     end
 end
 barplot!(ax, df[!, :p], df[!, :mean_value],
@@ -167,24 +179,30 @@ direction=:x,
 #width = df_bar[!, :width],
 flip_labels_at=0.95,
 color = colors[df_bar[!, :var]],stack = df_bar[!, :var], bar_labels = barlabels)
-fig
+fig_cost
 #-
 save(joinpath(basepath, "paper_plots/Flexibility_cost_with_base.png"), fig_cost)
 
 #-
 # Stack area chart for flex potential
 using VegaLite
-test_model = JSON.parsefile(joinpath(savepath, "run_25000.0_240_17_unfixed_guar_flex.json"))
+include(joinpath(basepath, "src", "evaluation_utils.jl"))
+
+#test_model = JSON.parsefile(joinpath(savepath, "run_25000.0_240_17_unfixed_guar_flex.json"))
+test_model = BSON.load(joinpath(savepath, "run_25000.0_240_17_unfixed_guar_flex.bson"))
 F_pos, F_neg, F_pos_d, F_neg_d = naive_flex_potential(test_model, pv, wind, timesteps)
 flex_pos = DataFrame(t = timesteps[1:100], cur = F_pos_d[1:100,1], sto = F_pos_d[1:100,2], heat = F_pos_d[1:100,3])
-flex_neg = DataFrame(t = timesteps[1:end-12],neg_cur = F_neg[:,1],neg_sto=F_neg_d[:,2],neg_heat=F_neg_d[:,3])
+flex_neg = DataFrame(t = timesteps[1:100],neg_cur = F_neg[1:100,1],neg_sto=F_neg_d[1:100,2],neg_heat=F_neg_d[1:100,3])
 flex_pos|>stack|>@vlplot(:area,x=:t,y={:value,stack=:zero},color="variable:n")
 flex_neg|>stack|>@vlplot(:area,x=:t,y={:value,stack=:zero},color="variable:n")
 
 #-
-test_model = JSON.parsefile(joinpath(savepath, "run_5000.0_48_17_fixed_fg_inv.json"))
+test_model = BSON.load(joinpath(savepath, "run_5000.0_48_17_fixed_fg_inv.bson"))
 F_pos, F_neg, F_pos_d, F_neg_d = naive_flex_potential(test_model, pv, wind, timesteps)
 flex_pos = DataFrame(t = timesteps[1:end-12], cur = F_pos_d[:,1], sto = F_pos_d[:,2], heat = F_pos_d[:,3])
 flex_neg = DataFrame(t = timesteps[1:end-12],neg_cur = F_neg[:,1],neg_sto=F_neg_d[:,2],neg_heat=F_neg_d[:,3])
+time_window = timesteps[1:end-12]#1:1003 Cost of flexibos_d[time_window,1],pos_sto=F_pos_d[time_window,2],pos_heat=F_pos_d[time_window,3],
+neg_cur = F_neg[time_window,1],neg_sto=F_neg_d[time_window,2],neg_heat=F_neg_d[time_window,3]
 flex_pos|>stack|>@vlplot(:area,x=:t,y={:value,stack=:zero},color="variable:n")
 flex_neg|>stack|>@vlplot(:area,x=:t,y={:value,stack=:zero},color="variable:n")
+flex_df|>stack|>@vlplot(:area,x=:t,y={:value,stack=:zero},color="variable:n")

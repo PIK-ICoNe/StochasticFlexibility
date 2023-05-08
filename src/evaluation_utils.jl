@@ -131,16 +131,16 @@ function naive_flex_potential(invs, ops, pv, wind, pars, timesteps)
     return F_pos, F_neg.* (-1.)
 end
 
-function naive_flex_potential(sp_data::Dict{String, Any}, pv, wind, timesteps)
-    u_pv = sp_data["inv"]["u_pv"]
-    u_wind = sp_data["inv"]["u_wind"]
-    u_storage = sp_data["inv"]["u_storage"]
-    u_heat_storage = sp_data["inv"]["u_heat_storage"]
-    sto_soc = sp_data["op"]["sto_soc"]
-    heat_soc = sp_data["op"]["heat_sto_soc"]
-    COP = sp_data["params"]["COP"]
-    pv_cur = sp_data["op"]["pv_cur"]
-    wind_cur = sp_data["op"]["wind_cur"]
+function naive_flex_potential(sp_data::Dict{Symbol, Any}, pv, wind, timesteps)
+    u_pv = sp_data[:inv][:u_pv]
+    u_wind = sp_data[:inv][:u_wind]
+    u_storage = sp_data[:inv][:u_storage]
+    u_heat_storage = sp_data[:inv][:u_heat_storage]
+    sto_soc = sp_data[:op][:sto_soc]
+    heat_soc = sp_data[:op][:heat_sto_soc]
+    COP = sp_data[:params][:COP]
+    pv_cur = sp_data[:op][:pv_cur]
+    wind_cur = sp_data[:op][:wind_cur]
     F_pos = zeros(length(timesteps[1:end-12]))
     F_neg = zeros(length(timesteps[1:end-12]))
     F_pos_d = zeros(length(timesteps[1:end-12]),3)
@@ -157,5 +157,5 @@ function naive_flex_potential(sp_data::Dict{String, Any}, pv, wind, timesteps)
         F_neg_d[t,3] = (heat_soc[t+1] - u_heat_storage)/COP
         F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
     end
-    return F_pos, F_neg.* (-1.), F_pos_d, F_neg_d.*(-1.)
+    return F_pos, F_neg, F_pos_d, F_neg_d
 end
