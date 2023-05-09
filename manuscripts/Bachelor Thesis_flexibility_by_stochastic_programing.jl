@@ -92,14 +92,17 @@ recovery_time = 12
 
 pars[:recovery_time] = recovery_time
 pars[:c_storage] = 600.
-pars[:c_pv] = 800.
+pars[:c_pv] = 900.
 pars[:c_wind] = 2500.
-pars[:c_i] = 0.4
-pars[:c_o] = 0.04
+pars[:c_i] = 0.3
+pars[:c_o] = 0.03
 pars[:c_heat_storage] = 400.
+pars[:heat_losses] = 0.00416
+pars[:heat_eff] = 0.95
 pars[:asset_lifetime] = 20.
-pars[:c_heatpump] = 457.; #kW heat -> mayve wrong and it should be 1600 kW electricity
-
+pars[:c_heatpump] = 533. #kW heat -> maybe wrong and it should be 1600 kW electricity (check)
+pars[:max_pv] = 10^4.
+pars[:max_wind] = 10^4.
 
 savepath = joinpath(basepath, "results")
 if !isdir(savepath)
