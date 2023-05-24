@@ -35,7 +35,7 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 timesteps = 1:24*365
 debug && (timesteps = 1:50)
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat=true);
-
+pars[:inv_budget] = 10^10;
 #= 
 We set up runs with variating guaranteed flexibility and number of scenarios
 =#
@@ -65,7 +65,8 @@ end
 #-
 println("scen_freq = $(sf), F = $(F)")
 
-filepath = joinpath(savepath, "conv_run_$(F)_$(scen_freq).bson")
-sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, round(Int, n_samples*sf/48), sf, savefiles = true, savepath = savepath, 
+filepath = joinpath(savepath, "run_$(F)_$(sf).bson")
+sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, round(Int, n_samples*sf/48), sf, 
+savefiles = true, savepath = filepath, 
 F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true)
 println("Runtime in seconds: $(time()-stime)")
