@@ -334,6 +334,9 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
 end
 
 inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
+op_vars = [:gci, :gco, :sto_soc, :sto_to_bus, :sto_from_bus,
+            :heat_sto_soc, :heat_sto_to_bus, :heat_sto_from_bus,
+            :flow_energy2heat, :pv_cur, :wind_cur]
 """
 Get decision variables associated with investment rather than system operation.
 """
@@ -387,8 +390,8 @@ function fix_operation!(sp, operation, number_of_hours)
     println("Operational schedule is fixed")
 end
 
-function unfix_operation!(sp, operation, number_of_hours)
-    for var_sym in keys(operation)
+function unfix_operation!(sp, number_of_hours)
+    for var_sym in keys(op_vars)
         for i in 1:number_of_hours
             unfix(decision_by_name(sp, 1, string(var_sym)*"[$i]"))
         end
