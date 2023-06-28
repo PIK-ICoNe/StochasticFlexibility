@@ -337,3 +337,27 @@ function plot_flex(sp_data, pv, wind; timesteps = 1:24*365)
     stack(df_pos,[:cur, :sto, :heat_sto]) |> @vlplot(:area, x = :time, y = {value, stack = :zero}, color="variable:n")
     return df_pos, df_neg
 end
+
+#Third research question
+function plot_sample_investments(u_pv, u_wind, u_storage, u_heat_storage, u_heatpump, n_samples, c_pv, c_wind, c_storage, c_heat_storage, c_heatpump; timesteps = 1:13)
+    num_samples = collect(1:length(u_pv))
+    Plots.plot(n_samples, u_pv, label="pv", xlabel = "sample size", ylabel = "capacity expansion") #Multiply by cost if necessary
+    plot!(n_samples, u_wind, label="wind")
+    plot!(n_samples, u_storage, label="storage")
+    plot!(n_samples, u_heat_storage, label="heat_storage")
+    plot!(n_samples, u_heatpump, label="heat_pump")
+end
+
+function plot_sample_investments_norm(u_pv, u_wind, u_storage, u_heat_storage, u_heatpump, n_samples, c_pv, c_wind, c_storage, c_heat_storage, c_heatpump; timesteps = 1:13)
+    num_samples = collect(1:length(u_pv))
+    Plots.plot(n_samples, u_pv/maximum(u_pv), label="pv", xlabel = "sample size", ylabel = "normalized expansion") #divided by the maximum #Multiply by cost if necessary
+    plot!(n_samples, u_wind/maximum(u_wind), label="wind")
+    plot!(n_samples, u_storage/maximum(u_storage), label="storage")
+    plot!(n_samples, u_heat_storage/maximum(u_heat_storage), label="heat_storage")
+    plot!(n_samples, u_heatpump/maximum(u_heatpump), label="heat_pump")
+end
+
+#second research question 
+function plot_sample_cost_of_flex(n_samples, bkg_cost, costs; timesteps = 1:13)
+    Plots.plot(n_samples, ((costs .- bkg_cost)./n_samples), label="", xlabel = "sample size", ylabel = "normalized flexibility cost") #./n_samples rauskürzen um die gesamten Kosten zu sehen #normalized #label="costs of flexible ancillary service"
+end    
