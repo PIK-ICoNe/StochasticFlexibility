@@ -1,6 +1,6 @@
 #=
 We focus on three particular pairs of F and scen_freq:
-(5000., 48), (7500., 144), (25000., 240)
+(5000., 48), (15000., 144), (25000., 240)
 =#
 
 ## Everything runs in the Project environment on the basepath
@@ -28,7 +28,7 @@ include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"));
 debug = false
 @assert length(ARGS)>=1
 
-n_runs = 3 # number of repeats with the same parameters
+n_runs = 20 # number of repeats with the same parameters
 n_val = 3 # number of validation repeats, reevaluating for n_val new samples
 if length(ARGS) > 1
     n_runs = Base.parse(Int,ARGS[2])
@@ -49,16 +49,26 @@ run_id  = ARGS[1]
 stime = time()
 savepath = joinpath(basepath, "results", run_id)
 if !isdir(savepath)
-    mkdir(savepath)
+    mkpath(savepath)
 end
 
 csv_path = joinpath(savepath, "val_costs.csv")
 if !isfile(csv_path)
-#m - Opt. mode (1 - fixed inv., 2 - free OF opt.)
+#m - opt_mode = ["fixed_fg","fixed_fg_inv","OF"]
     open(csv_path, "w") do f
         CSV.write(f,[], writeheader = true, header = ["p", "s_or", "s_val", "m", "cost", "CR"])
     end
 end
+
+inv_csv = joinpath(savepath, "inv.csv")
+if !isfile(inv_csv)
+    #m - opt_mode = ["fixed_fg","fixed_fg_inv","OF"]
+    open(inv_csv, "w") do f
+        CSV.write(f,[], writeheader = true, 
+        header = ["p", "s_or", "m", "u_pv", "u_wind", "u_storage", "u_heat_storage", "u_heatpump"])
+    end
+end
+#-
 #-
 timesteps = 1:24*365
 debug && (timesteps = 1:50)
@@ -69,83 +79,106 @@ pars[:inv_budget] = 10^10;
 if debug
     scen_freq, F = 3+pars[:recovery_time], 5000.
 	n_samples = 5
-    s_or = 1
-    s_val = 2
-    m = 1
 else
-    opt_params = [(5000., 48, 25), (7500., 144,70), (25000., 240, 120)]
-    i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
-    #p = ((i-1)÷n_runs)+1
-    #s_or = ((i-1)%n_runs+1)
+    opt_params = [(5000., 48, 25), (25000., 48, 25), (25000., 240, 120)]
+    opt_mode = ["fixed_fg","fixed_fg_inv","OF"]
     run_params = []
     for p in 1:3
-        #F, scen_freq, n_samples = params[p]
-        for m in 1:2
+        for m_index in 1:3
             for s_or in 1:n_runs
                 for s_val in [collect(1:s_or-1);collect(s_or+1:n_val)]
-                    push!(run_params, (p, m, s_or, s_val))
+                    push!(run_params, (p, m_index, s_or, s_val))
                 end
             end
         end
     end
-    p, m, s_or, s_val = run_params[Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))]
+    i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
+    p, m_index, s_or, s_val = run_params[i]
     F, scen_freq, n_samples = opt_params[p]
 	println("F = $F")
 	println("scen_freq = $(scen_freq)")
-    println("Original sample $s_or")
-    println("Validation sample $s_val")
+    println("Sample #$(s_or)")
+    println(opt_mode[m_index])
 end
 #-
+#=
+C^B and C^{FG} are already optimized in results/baseline
+=#
+samp = JSON.parsefile(joinpath(basepath, "samples","scen_freq$(scen_freq)_F_$(F)_n_$(n_samples)", "sample$(s_or).json"))
+scens = reconstruct_sample(samp)
 
-#es_no_guar = define_energy_system(pv, wind, demand, heatdemand; p = pars)
+samp = JSON.parsefile(joinpath(basepath, "samples","scen_freq$(scen_freq)_F_$(F)_n_$(n_samples)", "sample$(s_val).json"))
+scens_val = reconstruct_sample(samp)
+samp = nothing;
+t_max = 24*365 - 24
+delta_t = scen_freq - pars[:recovery_time]
+pars[:event_per_scen] = t_max / (delta_t + pars[:recovery_time] + 1)
+#-
+fg = JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_$(F).json"))
+inv_fg = fg["inv"]
+op_fg = fg["op"]
+fg = nothing; #free memory
+#-
 F_pos = F
 F_neg = -F
 es_guar = define_energy_system(pv, wind, demand, heatdemand;
 p = pars, guaranteed_flex=true, F_pos=F_pos, F_neg=F_neg)
 #-
-if m == 1
-    mode = "fixed_fg_inv"
-elseif m == 2
-    mode = "unfixed_guar_flex"
+savefile_lock = ReentrantLock()
+# First we open the file with validation costs
+val_costs = CSV.read(csv_path, DataFrame, header = true)
+invests = CSV.read(inv_csv, DataFrame, header = true)
+println("Evaluating the decision on sample $s_val")
+
+lock(savefile_lock)
+if size(val_costs)[1] != 0
+    sel = subset(val_costs, :p => a -> a .== p, :s_or => c -> c .== (s_or), :s_val => s -> s .== s_val, :m => n-> n.==m_index)
+else
+    sel = []
 end
-#modes = Dict(("fixed_fg_inv" => 1, "unfixed_guar_flex" => 2))
-
-    filename = joinpath(savepath, "preval", "run_$(F)_$(scen_freq)_$(s_or)_$mode.bson")
-    if isfile(filename) # Check if the pre-validation optimization is already complete
-        opt_data = BSON.load(filename)
-        inv = opt_data[:inv]
-        ops = opt_data[:op]
-        opt_data = nothing;
-        println("Pre-validation data for sample $(s_or) and mode $mode extracted")
-        savefile_lock = ReentrantLock()
-        # First we open the file with validation costs
-        val_costs = CSV.read(csv_path, DataFrame, header = true)
-            println("Evaluating the decision on sample $s_val")
-            lock(savefile_lock)
-            if size(val_costs)[1] != 0
-                sel = subset(val_costs, :p => a -> a .== p, :s_or => c -> c .== (s_or), :s_val => s -> s .== s_val, :m => n-> n.==m)
-            else
-                sel = []
-            end
-            if size(sel)[1] == 0
-                println("Starting the evaluation")
-                stime = time()
-                samp = JSON.parsefile(joinpath(basepath, "samples","scen_freq$(scen_freq)_n_$(n_samples)", "sample$(s_or).json"))
-                scens_validation = reconstruct_sample(samp)
-                samp = nothing;
-                sp = instantiate(es_guar, scens_validation, optimizer = Clp.Optimizer)
-                fix_investment!(sp, inv)
-                fix_operation!(sp, ops, length(timesteps))
-                set_silent(sp)
-                optimize!(sp)
-                runtime = time() - stime
-                println("Model optimized in $runtime seconds")
-                @assert objective_value(sp) != Inf
-                CSV.write(csv_path, DataFrame(p=p, s_or = (s_or), s_val = s_val, m = m, cost = objective_value(sp), CR = get_servicing_cost(sp)), append = true)
-            end
-            unlock(savefile_lock)
-        
-    else
-        println("Base optimization for sample $(s_or) with mode $mode is missing")
+if size(invests)[1] != 0
+    sel_inv = subset(val_costs, :p => a -> a .== p, :s_or => c -> c .== (s_or), :m => n-> n.==m_index)
+else
+    sel_inv = []
+end
+if size(sel)[1] == 0
+    println("Starting the evaluation")
+    stime = time()
+    filename = joinpath(savepath, "run_$(F)_$(scen_freq)_$(s_or)_$(opt_mode[m_index]).bson")
+    if !isfile(filename) # Check if the optimization is already complete
+        # useful for reruns if only some failed due to time or memory limits
+        savefiles = true
+    else 
+        savefiles = false
     end
+    stime = time()
+    if m_index == 1 # fixed FG
+        sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
+        savefiles = savefiles, savepath = filename, 
+        F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true,
+        fixed_invs = inv_fg, fixed_ops = op_fg, scens = scens, resample_scens = scens_val)
+    elseif m_index == 2
+        sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
+        savefiles = savefiles, savepath = filename, 
+        F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true,
+        fixed_invs = inv_fg, scens = scens, resample_scens = scens_val)
+    elseif m_index == 3
+        sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
+        savefiles = savefiles, savepath = filename, 
+        F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true, 
+        scens = scens, resample_scens = scens_val)
+    end
+    println("Runtime in seconds: $(time()-stime)")
+    println("Case $p, storage decision $(value.(sp[1,:u_storage]))")
+	if size(sel_inv)[1] == 0
+        invs = get_investments(sp)
+        CSV.write(inv_csv, DataFrame(p=p, s_or = s_or, m = m_index, 
+        u_pv = invs[:u_pv], u_wind = invs[:u_wind], u_storage = invs[:u_storage], 
+        u_heat_storage = invs[:u_heat_storage], u_heatpump = invs[:u_heatpump]), append = true)
+    end
+    CSV.write(csv_path, DataFrame(p=p, s_or = s_or, s_val = s_val, m = m_index, cost = objective_value(sp), CR = get_servicing_cost(sp)), append = true)
+else
+    println("$(opt_mode[m_index]) optimization for F = $F, scen_freq = $scen_freq and sample $(s_or) skipped.")
+end
 
+unlock(savefile_lock)

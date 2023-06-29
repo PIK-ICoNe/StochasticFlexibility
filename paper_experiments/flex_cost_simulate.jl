@@ -58,10 +58,9 @@ if debug
     scen_freq, F = 3+pars[:recovery_time], 5000.
 	n_samples = 5
 else
-    n_samples = 20
-    params = [(5000., 48), (7500., 144), (25000., 240)]
+    params = [(5000., 48, 25), (7500., 144,70), (25000., 240, 120)]
     i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
-    F, scen_freq = params[((i-1)÷n_runs)+1]
+    F, scen_freq, n_samples = params[((i-1)÷n_runs)+1]
 	println("F = $F")
 	println("scen_freq = $(scen_freq)")
 end
@@ -69,7 +68,7 @@ end
 #=
 C^B and C^{FG} are already optimized in results/baseline
 =#
-samp = JSON.parsefile(joinpath(basepath, "samples","scen_freq$scen_freq", "sample$((i-1)%n_runs+1).json"))
+samp = JSON.parsefile(joinpath(basepath, "samples","scen_freq$(scen_freq)_n_$(n_samples)", "sample$((i-1)%n_runs+1).json"))
 scens = reconstruct_sample(samp)
 samp = nothing;
 #-
@@ -100,10 +99,10 @@ if !isfile(filename) # Check if the optimization is already complete
     println("Model optimized in $runtime seconds")
     @assert objective_value(sp) != Inf
     stime = time()
-    opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
+    opt_params = Dict((:F_min => F*0.6, :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
                 #:F_guar_pos => F_pos, :F_guar_neg => F_neg
                 ))
-    all_data = get_all_data(sp)
+    all_data = get_all_data(sp, rec = false, scen = false)
     all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
     #=open(filename, "w") do f
         JSON.print(f,all_data)
@@ -128,10 +127,10 @@ if !isfile(filename)
     println("Model optimized in $runtime seconds")
     @assert objective_value(sp) != Inf
     stime = time()
-    opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
+    opt_params = Dict((:F_min => F*0.6, :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
                 #:F_guar_pos => F_pos, :F_guar_neg => F_neg
                 ))
-    all_data = get_all_data(sp)
+    all_data = get_all_data(sp, rec = false, scen = false)
     all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
     bson(filename, all_data)
     println("Data extracted and saved in $(time() - stime) seconds")
@@ -153,10 +152,10 @@ if !isfile(filename)
     println("Model optimized in $runtime seconds")
     @assert objective_value(sp) != Inf
     stime = time()
-    opt_params = Dict((:F_min => 3000., :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
+    opt_params = Dict((:F_min => F*0.6, :F_max => F, :t_max_offset => 24, :n_samples => n_samples, :scen_freq => scen_freq, 
                 :F_guar_pos => F_pos, :F_guar_neg => F_neg
                 ))
-    all_data = get_all_data(sp)
+    all_data = get_all_data(sp, rec = false, scen = false)
     all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
     bson(filename, all_data)
     println("Data extracted and saved in $(time() - stime) seconds")

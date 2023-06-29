@@ -9,7 +9,7 @@ include(joinpath(basepath, "src", "sp_model.jl"))
 using JSON
 #-
 # Pkg.instantiate()
-params = [(5000., 48, 25), (7500., 144,70), (25000., 240, 120)]
+params = [(5000., 48, 25), (25000., 48,25), (25000., 240, 120)]
 
 savepath = joinpath(basepath, "samples")
 if !isdir(savepath)
@@ -22,11 +22,12 @@ t_max = 24*365 - t_max_offset
 recovery_time = 12#pars[:recovery_time]
 #-
 for i in eachindex(params)
-    F, scen_freq, n_samples = params[i]
-    savepath_i = joinpath(savepath, "scen_freq$(scen_freq)_n_$(n_samples)")
+    @show F, scen_freq, n_samples = params[i]
+    savepath_i = joinpath(savepath, "scen_freq$(scen_freq)_F_$(F)_n_$(n_samples)")
     if !isdir(savepath_i)
         mkdir(savepath_i)
     end
+    println(savepath_i)
     for j in 1:20
         @assert scen_freq > recovery_time
         delta_t = scen_freq - recovery_time
