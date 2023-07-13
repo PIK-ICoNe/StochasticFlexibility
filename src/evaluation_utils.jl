@@ -1,5 +1,4 @@
-using Plots
-
+using StochasticPrograms
 """
 Suppress output of evaluate_decision, and deal with solvers that error on infeasibility.
 """
