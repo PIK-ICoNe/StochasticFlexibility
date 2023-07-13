@@ -37,20 +37,20 @@ current_colorway = PlotlyJS.PlotlyBase._get_colorway(fig_obj)
 
 p = Dict(())
 for c_var in ["CR", "CF"]
-    fig_layout = Layout(width=600, height=400,
+    fig_layout = Layout(width=1200, height=800,
     margin=attr(l=20,r=20,t=20,b=20, autoexpand=false),
     #paper_bgcolor="white", 
     plot_bgcolor = "white",
     legend = attr(x=0.7,y=1),
-    font=attr(size = 18),
+    font=attr(size = 20),
     yaxis = attr(exponentformat = "power", title_text=c_var*", Euro"))
     norm_fig_layout = Layout(width=600, height=400,
     margin=attr(l=20,r=20,t=20,b=20, autoexpand=false),
     #paper_bgcolor="white", 
     plot_bgcolor = "white",
     legend = attr(x=0.7,y=1),
-    font=attr(size = 18),
-    yaxis = attr(exponentformat = "power", title_text=c_var*"/Fₛ, Euro"))
+    font=attr(size = 20),
+    yaxis = attr(exponentformat = "power", title_text=c_var*"/Fₛ, Euro/kWh"))
     traces = [
         PlotlyJS.bar(
             x = string.(case_names),
