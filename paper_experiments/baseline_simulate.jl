@@ -17,22 +17,30 @@ warm_up()
 #-
 timesteps = 1:24*365
 
-pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat = true);
+pv, wind, demand, heatdemand, pars = load_max_boegl_district_heating(timesteps, heat = true);
 pars[:inv_budget] = 10^10;
 
 #-
-savepath = joinpath(basepath,"results","baseline")
+run_id  = ARGS[1]
+stime = time()
+
+savepath = joinpath(basepath,"results", run_id,"baseline")
 if !isdir(savepath)
     mkdir(savepath)
 end
 
-F_range = 0.:2500.:25000.
+F_range = 0.:5000.:25000.
+i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
+F = F_range[i]
+println("Optimizing for GF $F")
 # Analyze availability of flexibility for the background system
-Threads.@threads for F in F_range
+#Threads.@threads for F in F_range
     stime = time()
+if !isfile(joinpath(savepath, "baseline_$(F).bson"))
     es_bkg = define_energy_system(pv, wind, demand, heatdemand; p=pars, override_no_event_per_scen=true, guaranteed_flex=true, F_pos=F, F_neg=-F)
-    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Cbc.Optimizer)
     set_silent(sp_bkg)
+    println("Model instantiated")
     optimize!(sp_bkg)
     cost_bkg = objective_value(sp_bkg)
     bkg_investments = get_investments(sp_bkg)
@@ -45,8 +53,8 @@ Threads.@threads for F in F_range
     opt_params = Dict((:F_guar_pos => F, :F_guar_neg => -F))
         all_data = get_all_data(sp_bkg)
         all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp_bkg))))
-        open(joinpath(savepath, "baseline_$(F).json"), "w") do f
-            JSON.print(f,all_data)
-        end
+       bson(joinpath(savepath, "baseline_$(F).bson"), all_data)
+else
+    println("Skipping optimization for $F")
 end
 #-
