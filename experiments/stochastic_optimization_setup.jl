@@ -1,7 +1,9 @@
 using DataFrames
 
 using JSON
+using BSON
 using Clp
+using Cbc
 using Statistics;
 using StochasticPrograms
 using Random
@@ -41,7 +43,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
             es = define_energy_system(pv, wind, demand, heatdemand; p = pars)
         end
     
-        sp = instantiate(es, scens, optimizer = Clp.Optimizer)
+        sp = instantiate(es, scens, optimizer = Cbc.Optimizer)
     else
         sp = sp_bck
         println("Warning: ignoring everything but fixed_inv and using provided stochastic program")
@@ -79,7 +81,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
         else 
             scens_rs = resample_scens
         end
-        sp = instantiate(es, scens_rs, optimizer = Clp.Optimizer)
+        sp = instantiate(es, scens_rs, optimizer = Cbc.Optimizer)
         println("Model setup and instantiation performed in $(time() - stime) seconds")
         fix_investment!(sp, inv)
         fix_operation!(sp, ops, number_of_hours)
@@ -124,7 +126,7 @@ function warm_up()
     pv, wind, demand, heatdemand = load_basic_example(1:24);
     pars = copy(default_es_pars)
     es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_event_per_scen = true)
-    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Cbc.Optimizer)
     set_silent(sp_bkg)
     optimize!(sp_bkg)
     println("Warm up performed in $(time() - stime) seconds")
@@ -147,11 +149,11 @@ function get_background_model(pv, wind, demand, heatdemand, pars)
 
     bkg = nothing;
     es_bkg = define_energy_system(pv, wind, demand, heatdemand; p = pars, override_no_event_per_scen = true)
-    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Clp.Optimizer)
+    sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Cbc.Optimizer)
     fix_investment!(sp_bkg, bkg_inv)
     fix_operation!(sp_bkg, bkg_op, length(timesteps))
     set_silent(sp_bkg)
     optimize!(sp_bkg)
-    println("Background model instntiated and optimized in $(time()-stime) seconds")
+    println("Background model instantiated and optimized in $(time()-stime) seconds")
     return sp_bkg
 end
