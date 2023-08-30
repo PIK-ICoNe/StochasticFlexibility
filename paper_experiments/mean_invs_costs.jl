@@ -33,7 +33,8 @@ base_model = nothing;
 #-
 opt_params = [(5000., 48, 25), (25000., 48, 25), (25000., 240, 120)]
 timesteps = 1:24*365
-savepath = joinpath(basepath, "results/flex_cost_06_30")
+run_id = "flex_cost_07_28"#"flex_cost_06_30"
+savepath = joinpath(basepath, "results", run_id)
 #-
 df_costs = DataFrame(CSV.File(joinpath(savepath, "val_costs.csv")))
 df_inv = DataFrame(CSV.File(joinpath(savepath, "inv.csv")))
@@ -54,7 +55,7 @@ if !isfile(cost_csv) || !isfile(invs_csv)
             err_CF = std(sel[!,:cost].-CB)
             err_CR = std(sel[!, :CR])  
             # Total amount of flexibility requested in a year: F*events_per_year
-            total_flex = (length(timesteps)-24) / (opt_params[p][2] + 1)*opt_params[p][1]*opt_params[p][3] 
+            total_flex = (length(timesteps)-24) / (opt_params[p][2] + 1)*opt_params[p][1]*opt_params[p][3]*0.4 
             norm_costs = (sel[!, :cost] .- CB)/total_flex
             norm_mean_CF = mean(norm_costs)
             norm_err_CF = std(norm_costs)

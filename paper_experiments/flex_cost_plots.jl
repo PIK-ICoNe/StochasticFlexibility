@@ -24,7 +24,8 @@ plain_labels = ["OFR", "OFOR", "OFIOR"]
 timesteps = 1:24*365
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat = true);
 pars[:inv_budget] = 10^10;
-savepath = joinpath(basepath, "results/flex_cost_06_30")#05_12")
+run_id = "flex_cost_07_28"#"flex_cost_05_12"
+savepath = joinpath(basepath, "results", run_id)
 #-
 cost_csv = joinpath(savepath, "mean_costs.csv")
 invs_csv = joinpath(savepath, "mean_invs.csv")
@@ -44,7 +45,7 @@ for c_var in ["CR", "CF"]
     legend = attr(x=0.7,y=1),
     font=attr(size = 20),
     yaxis = attr(exponentformat = "power", title_text=c_var*", Euro"))
-    norm_fig_layout = Layout(width=600, height=400,
+    norm_fig_layout = Layout(width=1200, height=800,
     margin=attr(l=20,r=20,t=20,b=20, autoexpand=false),
     #paper_bgcolor="white", 
     plot_bgcolor = "white",
@@ -74,6 +75,6 @@ end
 
 #Plot normalized costs:
 for k in keys(p)
-    PlotlyJS.savefig(p[k], joinpath(basepath, "paper_plots", "flex_cost", k*".png"))
+    PlotlyJS.savefig(p[k], joinpath(basepath, "paper_plots", "flex_cost", k*"$run_id.png"))
 end
 #-

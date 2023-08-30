@@ -22,7 +22,8 @@ n_runs = 5
 timesteps = 1:24*365
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat = true);
 pars[:inv_budget] = 10^10;
-savepath = joinpath(basepath, "results/flex_cost_06_30")
+run_id = "flex_cost_07_28"#"flex_cost_06_30"
+savepath = joinpath(basepath, "results", run_id)
 model_names = Dict(("fixed_fg"=> "OFR", "fixed_fg_inv"=>"OFOR", "OF"=>"OFIOR"))
 #-
 
@@ -92,5 +93,5 @@ for p in 1:3
 end
 l = Legend(fig[2,5], elements, labels)
 display(fig)
-save(joinpath(basepath, "paper_plots/flex_sources", "flex_sources_combined.png"), fig)
+save(joinpath(basepath, "paper_plots/flex_sources", "flex_sources_combined_$(run_id).png"), fig)
 #-

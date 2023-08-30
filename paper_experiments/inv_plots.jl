@@ -18,11 +18,11 @@ using BSON
 include(joinpath(basepath, "src", "sp_model.jl"))
 #-
 opt_params = [(5000., 48, 25), (25000., 48, 25), (25000., 240, 120)]
-case_names = ["A", "B", "C"]
+case_names = ["small", "base", "rare"]
 
 plain_labels = ["OFR", "OFOR", "OFIOR"]
-
-savepath = joinpath(basepath, "results/flex_cost_06_30")#05_12")
+run_id = "flex_cost_07_28"
+savepath = joinpath(basepath, "results", run_id)#05_12")
 #-
 cost_csv = joinpath(savepath, "mean_costs.csv")
 invs_csv = joinpath(savepath, "mean_invs.csv")
@@ -32,10 +32,10 @@ df_inv_mean = CSV.read(invs_csv, DataFrame)
 using CairoMakie
 
 pl_colors = Makie.wong_colors()
-fig_inv = Figure()
+fig_inv = Figure(resolution = (2400, 1800))
 ax = Axis(fig_inv[1,1], yticks = (0:3, vcat("Base model", string.(case_names))),
         title = "Investment decision")
-labels = string.(inv_vars);
+labels = ["PV", "Wind", "Electrical storage", "Heat storage", "Heat pumps"]#string.(inv_vars);
 elements = [PolyElement(polycolor = pl_colors[i]); for i in 1:length(labels)]
 title = "Components";
 Legend(fig_inv[1,2], elements, labels, title)
@@ -55,8 +55,9 @@ dodge = df_inv_mean[!, :mode],
 direction=:x,
 flip_labels_at=0.85,
 color = pl_colors[df_inv_mean[!, :var]],
-stack = df_inv_mean[!, :var], bar_labels = barlabels)
+stack = df_inv_mean[!, :var], bar_labels = barlabels,
+label_size = 35, label_offset = 20)
 fig_inv
+display(fig_inv)
 save(joinpath(basepath, "paper_plots/opt_mode_investments.png"), fig_inv);
 #-
-
