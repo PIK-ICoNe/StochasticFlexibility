@@ -3,17 +3,17 @@ using CSV
 
 # pass heat = "district" for district heating, heat = "when2heat" for germany
     # "district" is default
-function load_max_boegl(timesteps; offset = 0, heat = nothing) 
+function load_max_boegl(timesteps; offset = 0, heat = nothing, scale_factor = 1.) 
     pv_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "pv_Halle18.csv"), DataFrame, header = false)
     wind_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "wind_Karholz.csv"), DataFrame, header = false)
     demand_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "demand_Industriepark.csv"), DataFrame, header = false)
     if !isnothing(heat)
         if heat == "when2heat"
             heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
-            heatdemand = heatdemand_data[timesteps .+ offset, 1]./40.
+            heatdemand = heatdemand_data[timesteps .+ offset, 1]./scale_factor
         else
             heatdemand_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_heatdemand_apartment_block(KFW40)_300km2_12300MWhperyear.csv"), DataFrame, header = false)
-            heatdemand = heatdemand_data[timesteps .+ offset, 1]
+            heatdemand = heatdemand_data[timesteps .+ offset, 1]./scale_factor
         end
     else
         heatdemand = zeros(length(timesteps))
