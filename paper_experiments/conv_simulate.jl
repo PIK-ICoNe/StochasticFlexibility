@@ -34,8 +34,7 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 #-
 timesteps = 1:24*365
 debug && (timesteps = 1:50)
-pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat=true);
-pars[:inv_budget] = 10^10;
+pv, wind, demand, heatdemand, pars = load_max_boegl(heat="when2heat");
 #= 
 We set up runs with variating guaranteed flexibility and number of scenarios
 =#
@@ -49,24 +48,19 @@ savepath = joinpath(basepath, "results", run_id)
 scen_freq = 96
 debug && (scen_freq = 3+pars[:recovery_time])
 if debug
-    n, F = 2, 5000.
+    n, F = 2, 500.
 else
-    n_samples = [collect(15:5:35); collect(40:10:90); collect(100:25:150)]
-    F_range = 5000.:5000.:25000.
-    @assert length(n_samples)*length(F_range) == Base.parse(Int,(ENV["SLURM_ARRAY_TASK_COUNT"]))
-    sample_param = []
-    for n in n_samples
-        for F in F_range
-            push!(sample_param, (n,F))
-        end
-    end
-    n, F = sample_param[Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))]
+    n_samples = [collect(20:10:70); collect(80:20:120)]
+    F = 500.
+    @assert length(n_samples) == Base.parse(Int,(ENV["SLURM_ARRAY_TASK_COUNT"]))
+
+    n = n_samples[Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))]
 end
 #-
 println("n_samples = $(n), F = $(F)")
 #param_id = "$(n)_$(F)"
-filepath = joinpath(savepath, "conv_run_$(F)_$(scen_freq)_$(n).bson")
+filename = "conv_run_$(F)_$(scen_freq)_$(n).bson"
 sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n, scen_freq, 
-savefiles = true, savepath = filepath, 
+savefiles = true, savepath = savepath, filename = filename,
 F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true)
 println("Runtime in seconds: $(time()-stime)")
