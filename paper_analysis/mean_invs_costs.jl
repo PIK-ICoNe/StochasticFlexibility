@@ -33,7 +33,7 @@ base_model = nothing;
 #-
 opt_params = [(5000., 48, 25), (25000., 48, 25), (25000., 240, 120)]
 timesteps = 1:24*365
-run_id = "flex_cost_07_28"#"flex_cost_06_30"
+run_id = "old_constraint_old_heat2"#"flex_cost_07_28"#"flex_cost_06_30"
 savepath = joinpath(basepath, "results", run_id)
 #-
 df_costs = DataFrame(CSV.File(joinpath(savepath, "val_costs.csv")))
