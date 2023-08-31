@@ -13,7 +13,7 @@ Pkg.activate(basepath)
 
 #= Include the file containing all the dependecies and optimization functions.
 =#
-include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"));
+include(joinpath(basepath, "paper_experiments", "stochastic_optimization_setup.jl"));
 
 #-
 # ARGS[1] should be "debug" or run_id
