@@ -98,6 +98,13 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
     first_stage_cost = get_total_investment(sp)/sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours + get_operation_cost(sp)
     println("Cost/kWh = $(first_stage_cost/(sum(demand)+sum(heatdemand)))")
     if resample
+        if savefiles
+            opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
+                :F_guar_pos => F_pos, :F_guar_neg => F_neg))
+            all_data = get_all_data(sp, rec=false, scen=false)
+            all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+            bson(joinpath(savepath, filename*".bson"), all_data)
+        end
         stime = time()
         println("Starting resampling")
         inv = get_investments(sp)
@@ -117,19 +124,15 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
         runtime = time() - stime
         println("Model reoptimized in $runtime seconds")
         @assert objective_value(sp) != Inf
+        first_stage_cost = get_total_investment(sp)/sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours + get_operation_cost(sp)
+        println("After resampling Cost/kWh = $(first_stage_cost/(sum(demand)+sum(heatdemand)))")
     end
     if savefiles
         opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
             :F_guar_pos => F_pos, :F_guar_neg => F_neg))
         all_data = get_all_data(sp, rec=false, scen=false)
         all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-        if occursin("json", filename)
-            open(joinpath(savepath, filename), "w") do f
-                JSON.print(f,all_data)
-            end# joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json")
-        elseif occursin("bson", filename)
-            bson(joinpath(savepath, filename), all_data)
-        end
+        bson(joinpath(savepath, filename*"resampled.bson"), all_data)
     end
     return sp, runtime
 end
