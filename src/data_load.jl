@@ -3,18 +3,23 @@ using CSV
 
 # pass heat = "district" for district heating, heat = "when2heat" for germany
     # "district" is default
-function load_max_boegl(timesteps; offset = 0, heat = nothing, scale_factor = 1.) 
+function load_max_boegl(;time_steps = nothing, offset = 0, heat = "district", scale_factor = 1.) 
     pv_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "pv_Halle18.csv"), DataFrame, header = false)
     wind_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "wind_Karholz.csv"), DataFrame, header = false)
     demand_data =  CSV.read(joinpath(basepath, "timeseries/validation_usecase", "demand_Industriepark.csv"), DataFrame, header = false)
-    if !isnothing(heat)
-        if heat == "when2heat"
-            heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
-            heatdemand = heatdemand_data[timesteps .+ offset, 1]./scale_factor
-        else
-            heatdemand_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_heatdemand_apartment_block(KFW40)_300km2_12300MWhperyear.csv"), DataFrame, header = false)
-            heatdemand = heatdemand_data[timesteps .+ offset, 1]./scale_factor
-        end
+    
+    if isnothing(time_steps)
+        timesteps = 1:length(pv_data[:, 1])
+    else
+        timesteps = time_steps
+    end
+
+    if heat == "when2heat"
+        heatdemand_data = CSV.read(joinpath(basepath, "timeseries", "heatdemand.csv"), DataFrame)
+        heatdemand = heatdemand_data[timesteps .+ offset, 1]./(50. * scale_factor)
+    elseif heat == "district"
+        heatdemand_data = CSV.read(joinpath(basepath, "timeseries/validation_usecase", "csv_heatdemand_apartment_block(KFW40)_300km2_12300MWhperyear.csv"), DataFrame, header = false)
+        heatdemand = heatdemand_data[timesteps .+ offset, 1]./scale_factor
     else
         heatdemand = zeros(length(timesteps))
     end
@@ -34,13 +39,17 @@ function load_max_boegl(timesteps; offset = 0, heat = nothing, scale_factor = 1.
     pars[:c_wind] = 1150.
     pars[:c_in] = 0.165
     pars[:c_out] = 0.02
-    pars[:asset_lifetime] = 5.
+    pars[:asset_lifetime] = 5. # TODO increase to 10
     pars[:inv_budget] = 10000000.
     pars[:sto_ef_ch] = 0.97
     pars[:sto_ef_dis] = 0.97
     pars[:feedincap] = 1e7
-    pars[:max_pv] = 10^4
+    pars[:max_pv] = 10^4 # increase by factor of 2
     pars[:max_wind] = 10^4;
+    println("Hourly electricity demand: min = $(minimum(demand)),  mean = $(mean(demand)), max = $(maximum(demand))")
+    println("Hourly heat demand: min = $(minimum(heatdemand)),  mean = $(mean(heatdemand)), max = $(maximum(heatdemand))")
+    println("Hourly PV production at max. investment: mean = $(mean(pv)*pars[:max_pv]), max = $(maximum(pv)*pars[:max_pv])")
+    println("Hourly wind production at max. investment: mean = $(mean(wind)*pars[:max_wind]), max = $(maximum(wind)*pars[:max_wind])")
     return pv, wind, demand, heatdemand, pars
 end
 

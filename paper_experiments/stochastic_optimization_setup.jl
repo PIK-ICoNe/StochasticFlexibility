@@ -8,13 +8,14 @@ using Gurobi
 using Statistics;
 using StochasticPrograms
 using Random
+using CSV
 
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 
 function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
     F_min = 3000., F_max = 10000., F_pos=nothing, F_neg=nothing, t_max_offset = 24,
-    savefiles=false, savepath=nothing, fixed_invs=nothing, fixed_ops = nothing,
+    savefiles=false, savepath=nothing, filename = nothing, fixed_invs=nothing, fixed_ops = nothing,
     scens=nothing, sp_bck=nothing, resample = false, resample_scens = nothing, opt = "Clp", cap_constraint = "naive")
     number_of_hours = minimum((length(pv),length(wind),length(demand),length(heatdemand)))
     if opt == "Cbc"
@@ -25,6 +26,12 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
         optim = Clp.Optimizer
     end
     @show optim
+    println("Hourly electricity demand: mean = $(mean(demand)), max = $(maximum(demand))")
+    println("Hourly heat demand: mean = $(mean(heatdemand)), max = $(maximum(heatdemand))")
+    println("Type of constraint used: $cap_constraint")
+    println("Hourly PV production at max. investment: mean = $(mean(pv)*pars[:max_pv]), max = $(maximum(pv)*pars[:max_pv])")
+    println("Hourly wind production at max. investment: mean = $(mean(wind)*pars[:max_wind]), max = $(maximum(wind)*pars[:max_wind])")
+
     if savefiles
         @assert !isnothing(savepath)
         println("Ready to save files")
@@ -40,6 +47,8 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
         println("$n total scenarios, with an average of $(pars[:event_per_scen]) events per full time period")
         scens = poisson_events_with_offset(n, delta_t, recovery_time, F_max, t_max, F_min = F_min)
     end
+    println("Expected hourly flex. request: mean = $(mean([scens[i].data[:F_xi] for i in eachindex(scens)])), max = $(maximum([scens[i].data[:F_xi] for i in eachindex(scens)]))")
+
     stime = time()
 
     if isnothing(sp_bck)
@@ -78,8 +87,16 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
     stime = time()
     optimize!(sp)
     runtime = time() - stime
+    gci, gco = get_penalty_array(sp)
+    println("$(length(gci[gci.>0.])) scenarios used gci to balance the request")
+    println("$(length(gco[gco.>0.])) scenarios used gco to balance the request")
+    penalty_DF = DataFrame(gci = gci, gco = gco)
+    CSV.write(joinpath(savepath, "penalty_info.csv"), penalty_DF)
+    # TODO save penalty array data
     println("Model optimized in $runtime seconds")
     @assert objective_value(sp) != Inf
+    first_stage_cost = get_total_investment(sp)/sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours + get_operation_cost(sp)
+    println("Cost/kWh = $(first_stage_cost/(sum(demand)+sum(heatdemand)))")
     if resample
         stime = time()
         println("Starting resampling")
@@ -106,12 +123,12 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
             :F_guar_pos => F_pos, :F_guar_neg => F_neg))
         all_data = get_all_data(sp, rec=false, scen=false)
         all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-        if occursin("json", savepath)
-            open(savepath, "w") do f
+        if occursin("json", filename)
+            open(joinpath(savepath, filename), "w") do f
                 JSON.print(f,all_data)
             end# joinpath(savepath, "run_$(n_samples)_$(scen_freq)_$(F_pos)_$(F_neg).json")
-        elseif occursin("bson", savepath)
-            bson(savepath, all_data)
+        elseif occursin("bson", filename)
+            bson(joinpath(savepath, filename), all_data)
         end
     end
     return sp, runtime

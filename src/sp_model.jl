@@ -193,7 +193,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 # Heat balance
                 @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)
                 if guaranteed_flex
-                    @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP >= F_pos)
+                    @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_sto_soc[t+1]/COP >= F_pos) # TODO change to flow_energy2heat[t]
                     @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_sto_soc[t+1] - u_heat_storage)/COP <= F_neg)
                     # should include heatpump constraint, but we do not consider it here
                 end
