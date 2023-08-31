@@ -24,7 +24,7 @@ plain_labels = ["OFR", "OFOR", "OFIOR"]
 timesteps = 1:24*365
 pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat = true);
 pars[:inv_budget] = 10^10;
-run_id = "flex_cost_07_28"#"flex_cost_05_12"
+run_id = "old_constraint_old_heat2"#"flex_cost_07_28"#"flex_cost_05_12"
 savepath = joinpath(basepath, "results", run_id)
 #-
 cost_csv = joinpath(savepath, "mean_costs.csv")
