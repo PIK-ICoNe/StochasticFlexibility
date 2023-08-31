@@ -106,7 +106,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     else
         event_per_scen = p[:event_per_scen]
     end
-    if cap_constraint == naive
+    if cap_constraint == "naive"
         energy_system = @stochastic_model begin 
             @stage 1 begin
                 @parameters begin
