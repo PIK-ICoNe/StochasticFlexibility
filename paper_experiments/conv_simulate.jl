@@ -59,7 +59,7 @@ end
 #-
 println("n_samples = $(n), F = $(F)")
 #param_id = "$(n)_$(F)"
-filename = "conv_run_$(F)_$(scen_freq)_$(n).bson"
+filename = "conv_run_$(F)_$(scen_freq)_$(n)"
 sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n, scen_freq, 
 savefiles = true, savepath = savepath, filename = filename,
 F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true)

@@ -36,7 +36,7 @@ println("Optimizing for GF $F")
 # Analyze availability of flexibility for the background system
 #Threads.@threads for F in F_range
 stime = time()
-filename = "baseline_$(F).bson"
+filename = "baseline_$(F)"
 if !isfile(joinpath(savepath, filename))
     es_bkg = define_energy_system(pv, wind, demand, heatdemand; p=pars, override_no_event_per_scen=true, guaranteed_flex=true, F_pos=F, F_neg=-F)
     sp_bkg = instantiate(es_bkg, no_flex_pseudo_sampler(), optimizer = Cbc.Optimizer)
