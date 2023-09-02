@@ -21,4 +21,4 @@
 
 module load julia
 
-julia ../paper_experiments/baseline_simulate.jl legacy
+julia ./code/StochasticFlexibility/paper_experiments/baseline_simulate.jl legacy

@@ -103,7 +103,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
                 :F_guar_pos => F_pos, :F_guar_neg => F_neg))
             all_data = get_all_data(sp, rec=false, scen=false)
             all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-            bson(joinpath(savepath, filename*".bson"), all_data)
+            bson(joinpath(savepath, filename*"before_resampling.bson"), all_data)
         end
         stime = time()
         println("Starting resampling")
@@ -132,7 +132,7 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
             :F_guar_pos => F_pos, :F_guar_neg => F_neg))
         all_data = get_all_data(sp, rec=false, scen=false)
         all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
-        bson(joinpath(savepath, filename*"resampled.bson"), all_data)
+        bson(joinpath(savepath, filename*".bson"), all_data)
     end
     return sp, runtime
 end

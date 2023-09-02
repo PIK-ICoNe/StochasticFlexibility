@@ -9,7 +9,7 @@ include(joinpath(basepath, "src", "sp_model.jl"))
 using JSON
 #-
 # Pkg.instantiate()
-params = [(5000., 48, 25), (25000., 48,25), (25000., 240, 120)]
+params = [(500., 96, 40)]#[(5000., 48, 25), (25000., 48,25), (25000., 240, 120)]
 
 savepath = joinpath(basepath, "samples")
 if !isdir(savepath)
