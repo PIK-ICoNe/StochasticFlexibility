@@ -39,14 +39,14 @@ function load_max_boegl(;time_steps = nothing, offset = 0, heat = "district", sc
     pars[:c_wind] = 1150.
     pars[:c_in] = 0.165
     pars[:c_out] = 0.02
-    pars[:asset_lifetime] = 5. # TODO increase to 10
+    pars[:asset_lifetime] = 10 # increased
     pars[:inv_budget] = 10000000.
     pars[:sto_ef_ch] = 0.97
     pars[:sto_ef_dis] = 0.97
     pars[:feedincap] = 1e7
-    pars[:max_pv] = 10^4 # increase by factor of 2
+    pars[:max_pv] = 2*10^4 # increased by factor of 2
     pars[:max_wind] = 10^4
-    pars[:inv_budget] = 10^10;;
+    pars[:inv_budget] = 10^10;
     println("Hourly electricity demand: min = $(minimum(demand)),  mean = $(mean(demand)), max = $(maximum(demand))")
     println("Hourly heat demand: min = $(minimum(heatdemand)),  mean = $(mean(heatdemand)), max = $(maximum(heatdemand))")
     println("Hourly PV production at max. investment: mean = $(mean(pv)*pars[:max_pv]), max = $(maximum(pv)*pars[:max_pv])")

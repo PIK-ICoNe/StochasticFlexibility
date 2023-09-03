@@ -728,15 +728,16 @@ end
 function get_servicing_cost(data_dict::Dict{Symbol, Any}; number_of_hours = 24*365)
     total_inv = get_total_investment(data_dict, number_of_hours=number_of_hours)
     op_cost = get_operation_cost(data_dict)
-    return data_dict[:cost]-total_inv-op_cost
+    lifetime_factor = data_dict[:params][:asset_lifetime]* 365 * 24 / number_of_hours
+    return data_dict[:cost]-total_inv/lifetime_factor-op_cost
 end
 
 function get_servicing_cost(sp; number_of_hours = 24*365)
     total_inv = get_total_investment(sp, number_of_hours = number_of_hours)
     op_cost = get_operation_cost(sp)
-    return objective_value(sp)-total_inv-op_cost
+    lifetime_factor = sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours
+    return objective_value(sp)-total_inv/lifetime_factor-op_cost
 end
-
 
 function get_all_data(sp; rec = true, scen = true)
     inv_d = get_investments(sp)
