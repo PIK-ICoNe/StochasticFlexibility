@@ -16,7 +16,7 @@ include(joinpath(basepath, "src", "data_load.jl"));
 function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
     F_min = 3000., F_max = 10000., F_pos=nothing, F_neg=nothing, t_max_offset = 24,
     savefiles=false, savepath=nothing, filename = nothing, fixed_invs=nothing, fixed_ops = nothing,
-    scens=nothing, sp_bck=nothing, resample = false, resample_scens = nothing, opt = "Clp", cap_constraint = "naive")
+    scens=nothing, sp_bck=nothing, resample = false, resample_scens = nothing, opt = "Cbc", cap_constraint = "improved_heat")
     number_of_hours = minimum((length(pv),length(wind),length(demand),length(heatdemand)))
     if opt == "Cbc"
         optim = Cbc.Optimizer

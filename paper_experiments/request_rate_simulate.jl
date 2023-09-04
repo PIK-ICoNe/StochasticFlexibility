@@ -34,8 +34,8 @@ We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 #-
 timesteps = 1:24*365
 debug && (timesteps = 1:50)
-pv, wind, demand, heatdemand, pars = load_max_boegl_district_heating(timesteps, heat=true);
-pars[:inv_budget] = 10^10;
+pv, wind, demand, heatdemand, pars = load_max_boegl(heat="when2heat");
+
 #= 
 We set up runs with variating guaranteed flexibility and number of scenarios
 =#

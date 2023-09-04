@@ -21,4 +21,4 @@
 
 module load julia
 
-julia ./code/StochasticFlexibility/paper_experiments/baseline_simulate.jl new_parameters
+julia ./code/StochasticFlexibility/paper_experiments/baseline_simulate.jl new_constraint
