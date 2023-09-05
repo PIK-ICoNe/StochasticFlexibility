@@ -1,3 +1,32 @@
+## Everything runs in the Project environment on the basepath
+
+#=
+In this experiment we analyze investment decision's sensitivity to sampling.
+=#
+basepath = realpath(joinpath(@__DIR__, ".."))
+
+using Pkg
+Pkg.activate(basepath)
+# Pkg.instantiate()
+
+#using Dates
+
+#= Include the file containing all the dependencies and optimization functions.
+=#
+include(joinpath(basepath, "src", "stochastic_optimization_setup.jl"));
+
+#-
+# ARGS[1] should be "debug" or run_id
+debug = false
+@assert length(ARGS)>=1
+
+if occursin("debug", ARGS[1])
+    debug = true
+    println("Debug run")
+end
+
+!debug && (warm_up())
+
 #=
 We load timeseries for photovoltaic (pv) and wind potential as well as demand.
 =#
@@ -11,10 +40,11 @@ We set up runs with variating guaranteed flexibility and number of scenarios
 #-
 run_id  = ARGS[1]
 stime = time()
-if !isdir(joinpath(basepath, "results", run_id))
-    mkdir(joinpath(basepath, "results", run_id))
-end
 savepath = joinpath(basepath, "results", run_id)
+
+if !isdir(savepath)
+    mkdir(savepath)
+end
 n_samples = 20 # base n_samples for scen_freq = 48
 debug && (scen_freq = 3+pars[:recovery_time])
 if debug

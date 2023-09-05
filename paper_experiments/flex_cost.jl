@@ -22,7 +22,7 @@ using CSV
 
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"))
-include(joinpath(basepath, "paper_experiments", "stochastic_optimization_setup.jl"));
+include(joinpath(basepath, "src", "stochastic_optimization_setup.jl"));
 #-
 # ARGS[1] should be "debug" or run_id
 debug = false

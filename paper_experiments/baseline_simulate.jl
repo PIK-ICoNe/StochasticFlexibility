@@ -13,7 +13,7 @@ Pkg.activate(basepath)
 
 #-
 println("Path instantiated")
-include(joinpath(basepath, "paper_experiments", "stochastic_optimization_setup.jl"))
+include(joinpath(basepath, "src", "stochastic_optimization_setup.jl"))
 #warm_up()
 #-
 timesteps = 1:24*365
