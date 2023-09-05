@@ -36,6 +36,8 @@ n_samples = 20
 
 data_matrix = Dict((:total_cost=>zeros(length(scen_freq), length(F_range)), 
 :CF => zeros(length(scen_freq), length(F_range)), 
+:CF_norm => zeros(length(scen_freq), length(F_range)),
+:total_flex => zeros(length(scen_freq), length(F_range)),
 :CO => zeros(length(scen_freq), length(F_range)),
 :CI => zeros(length(scen_freq), length(F_range))))
 inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
@@ -51,7 +53,13 @@ for i in eachindex(scen_freq)
         #cost_first_stage = get_total_investment(read_data) + get_operation_cost(read_data)
         data_matrix[:CO][i,j] = get_operation_cost(read_data)
         #CG = cost_first_stage - CB
-        data_matrix[:CF][i,j] = read_data[:cost]-CB
+        CF = read_data[:cost]-CB
+        total_flex = (length(timesteps)-24) / (sf + 1)*F*0.4 
+        norm_CF = CF/total_flex
+        data_matrix[:CF][i,j] = CF
+        data_matrix[:CF_norm][i,j] = norm_CF
+        data_matrix[:total_flex][i,j] = total_flex
+
         data_matrix[:total_cost][i,j] = read_data[:cost]
         for inv_var in inv_vars # convert units of components into euro
             inv = read_data[:inv][inv_var]*read_data[:params][Symbol(replace(string(inv_var), "u_"=>"c_"))]
@@ -64,25 +72,25 @@ end
 #-
 using CairoMakie
 set_theme!(Theme(fontsize=45))
-hm_vars = [:CF :CI; :u_storage :u_heat_storage; :u_heatpump :u_heatpump]
-hm_labels = ["CF" "CI"; "Cost of electricity storage" "Cost of heat storage"; "Cost of heat pump" "Cost of heat pump"]
+hm_vars = [:CF :CI; :u_storage :u_heat_storage; :CF_norm :total_flex]
+hm_labels = ["CF" "CI"; "Cost of electricity storage" "Cost of heat storage"; "Normalized CF" "Total flexibility in a year"]
 
 add_case_studies = false
 fig = Figure(resolution = (2400, 1800))
-for i in 1:2
+for i in 1:3
     for j in 1:2
         j_m = j
         (j == 2) && (j_m+=1) # this is done to place colorbars correctly
         # having one colorbar for all plots does not work as the values are too different
-        ax = Axis(fig[i,j_m], xticklabelsvisible = (i==2),
+        ax = Axis(fig[i,j_m], xticklabelsvisible = (i==3),
         yticklabelsvisible = (j==1), xtickformat = "{:0d}",
         xlabel = L"F_G,\, kW", ylabel = L"\Delta_t",
-        xlabelvisible = (i==2), ylabelvisible = (j==1),
+        xlabelvisible = (i==3), ylabelvisible = (j==1),
         title = hm_labels[i,j])
-        hm = heatmap!(ax, F_range./100, scen_freq, data_matrix[hm_vars[i,j]]', 
+        hm = heatmap!(ax, F_range, scen_freq, data_matrix[hm_vars[i,j]]', 
         colormap=:blues)
         Colorbar(fig[i,j_m+1], hm)
-        if add_case_studies
+        if add_case_studies # TODO update case studies
             scatter!(ax, [5,25,25], [48,48,240], color=:red, markersize=20)
             text!(ax, [5,25,25], [48,48,240], text=["small", "base", "rare"], align=(:center, :bottom), offset=(0,20), color=:gray)
         end

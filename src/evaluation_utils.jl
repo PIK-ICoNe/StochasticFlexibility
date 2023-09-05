@@ -116,21 +116,24 @@ function naive_flex_potential(invs, ops, pv, wind, pars, timesteps)
     u_heat_storage = invs[:u_heat_storage]
     u_pv = invs[:u_pv]
     u_wind = invs[:u_wind]
+    u_heatpump = invs[:u_heatpump]
     sto_soc = ops[:sto_soc]
     heat_soc = ops[:heat_sto_soc]
+    flow_energy2heat = ops[:flow_energy2heat]
+    hc = ops[:hc]
     COP = pars[:COP]
     F_pos = zeros(length(timesteps[1:end-12]))
     F_neg = zeros(length(timesteps[1:end-12]))
     for t in timesteps[1:end-12]
         # positive flexibility:
-        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
+        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + flow_energy2heat[t]
         # negative flexibility:
-        F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
+        F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + hc[t]
     end
     return F_pos, F_neg.* (-1.)
 end
 
-function naive_flex_potential(sp_data::Dict{Symbol, Any}, pv, wind, timesteps)
+function naive_flex_potential(sp_data::Dict{Symbol, Any}, pv, wind, timesteps, cap_constaint = "naive")
     u_pv = sp_data[:inv][:u_pv]
     u_wind = sp_data[:inv][:u_wind]
     u_storage = sp_data[:inv][:u_storage]
@@ -138,6 +141,10 @@ function naive_flex_potential(sp_data::Dict{Symbol, Any}, pv, wind, timesteps)
     sto_soc = sp_data[:op][:sto_soc]
     heat_soc = sp_data[:op][:heat_sto_soc]
     COP = sp_data[:params][:COP]
+    u_heatpump = sp_data[:inv][:u_heatpump]
+    heat_soc = sp_data[:op][:heat_sto_soc]
+    flow_energy2heat = sp_data[:op][:flow_energy2heat]
+    #hc = [:hc]
     pv_cur = sp_data[:op][:pv_cur]
     wind_cur = sp_data[:op][:wind_cur]
     F_pos = zeros(length(timesteps[1:end-12]))
@@ -148,13 +155,19 @@ function naive_flex_potential(sp_data::Dict{Symbol, Any}, pv, wind, timesteps)
         # positive flexibility:
         F_pos_d[t,1] = pv_cur[t]+wind_cur[t]
         F_pos_d[t,2] = sto_soc[t+1]
-        F_pos_d[t,3] = heat_soc[t+1]/COP
-        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
+        if cap_constaint == "naive"
+            F_pos_d[t,3] = heat_soc[t+1]/COP
+            F_neg_d[t,3] = (heat_soc[t+1] - u_heat_storage)/COP
+        elseif cap_constaint == "improved_heat"
+            F_pos_d[t,3] = flow_energy2heat[t]
+            F_neg_d[t,3] = maximum([(heat_soc[t+1] - u_heat_storage)/COP, flow_energy2heat[t]-u_heatpump])
+        end
+        #pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
         # negative flexibility:
         F_neg_d[t,1] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind
         F_neg_d[t,2] = sto_soc[t+1] - u_storage
-        F_neg_d[t,3] = (heat_soc[t+1] - u_heat_storage)/COP
-        F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
+        F_pos[t] = sum(F_pos_d[t, 1:3])
+        F_neg[t] = sum(F_neg_d[t,1:3])#pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
     end
     return F_pos, F_neg, F_pos_d, F_neg_d
 end

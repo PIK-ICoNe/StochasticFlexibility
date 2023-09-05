@@ -55,7 +55,7 @@ if !isfile(cost_csv) || !isfile(invs_csv)
             err_CF = std(sel[!,:cost].-CB)
             err_CR = std(sel[!, :CR])  
             # Total amount of flexibility requested in a year: F*events_per_year
-            total_flex = (length(timesteps)-24) / (opt_params[p][2] + 1)*opt_params[p][1]*opt_params[p][3]*0.4 
+            total_flex = (length(timesteps)-24) / (opt_params[p][2] + 1)*opt_params[p][1]*opt_params[p][3]*0.4 # TODO check if this is correct!
             norm_costs = (sel[!, :cost] .- CB)/total_flex
             norm_mean_CF = mean(norm_costs)
             norm_err_CF = std(norm_costs)
