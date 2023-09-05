@@ -122,7 +122,7 @@ function naive_flex_potential(invs, ops, pv, wind, pars, timesteps)
     F_pos = zeros(length(timesteps[1:end-12]))
     F_neg = zeros(length(timesteps[1:end-12]))
     for t in timesteps[1:end-12]
-        # positive flexibility:
+        # positive flexibility: # TODO include new constraint
         F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
         # negative flexibility:
         F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
@@ -149,36 +149,7 @@ function naive_flex_potential(sp_data::Dict{Symbol, Any}, pv, wind, timesteps)
         F_pos_d[t,1] = pv_cur[t]+wind_cur[t]
         F_pos_d[t,2] = sto_soc[t+1]
         F_pos_d[t,3] = heat_soc[t+1]/COP
-        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
-        # negative flexibility:
-        F_neg_d[t,1] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind
-        F_neg_d[t,2] = sto_soc[t+1] - u_storage
-        F_neg_d[t,3] = (heat_soc[t+1] - u_heat_storage)/COP
-        F_neg[t] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + (heat_soc[t+1] - u_heat_storage)/COP
-    end
-    return F_pos, F_neg, F_pos_d, F_neg_d
-end
-
-function naive_flex_potential(sp_data::Dict{String, Any}, pv, wind, timesteps)
-    u_pv = sp_data["inv"]["u_pv"]
-    u_wind = sp_data["inv"]["u_wind"]
-    u_storage = sp_data["inv"]["u_storage"]
-    u_heat_storage = sp_data["inv"]["u_heat_storage"]
-    sto_soc = sp_data["op"]["sto_soc"]
-    heat_soc = sp_data["op"]["heat_sto_soc"]
-    COP = sp_data["params"]["COP"]
-    pv_cur = sp_data["op"]["pv_cur"]
-    wind_cur = sp_data["op"]["wind_cur"]
-    F_pos = zeros(length(timesteps[1:end-12]))
-    F_neg = zeros(length(timesteps[1:end-12]))
-    F_pos_d = zeros(length(timesteps[1:end-12]),3)
-    F_neg_d = zeros(length(timesteps[1:end-12]),3)
-    for t in timesteps[1:end-12]
-        # positive flexibility:
-        F_pos_d[t,1] = pv_cur[t]+wind_cur[t]
-        F_pos_d[t,2] = sto_soc[t+1]
-        F_pos_d[t,3] = heat_soc[t+1]/COP
-        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP
+        F_pos[t] = pv_cur[t] + wind_cur[t] + sto_soc[t+1] + heat_soc[t+1]/COP # TODO include new constraint
         # negative flexibility:
         F_neg_d[t,1] = pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind
         F_neg_d[t,2] = sto_soc[t+1] - u_storage

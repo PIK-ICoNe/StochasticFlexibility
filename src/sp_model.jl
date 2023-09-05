@@ -415,13 +415,20 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 # Heat balance
                 @constraint(model, [t in 1:number_of_hours], -heatdemand[t] + heat_sto_to_bus[t] - heat_sto_from_bus[t] + COP*flow_energy2heat[t] - heat_losses*heat_sto_soc[t] == 0)
                 # Naive flex potential constraint
-                # for the positive constraint it's easy: we stop pumping energy into heat
+                # for the positive constraint, we stop pumping energy into heat, accounting for heat soc at next time step
+                @decision(model, -debug_cap*100. <= hc_pos[t in 1:number_of_hours-1] <= 0.) # this variable will be the minimum
+                @constraint(model, [t in 1:number_of_hours-1], hc_pos[t] <= flow_energy2heat[t])
+                @constraint(model, [t in 1:number_of_hours-1], hc_pos[t] <= heat_sto_soc[t+1]/COP)
+                @decision(model, hc_decision_pos[t in 1:number_of_hours-1], binary = true)
+                @constraint(model, [t in 1:number_of_hours-1], flow_energy2heat[t]-heat_sto_soc[t+1]/COP<=debug_cap*100*(1-hc_decision_pos[t]))
+                @constraint(model, [t in 1:number_of_hours-1], -flow_energy2heat[t]+heat_sto_soc[t+1]/COP<=debug_cap*100*(hc_decision_pos[t]))
+                @constraint(model, [t in 1:number_of_hours-1], hc_pos[t] >= flow_energy2heat[t]- debug_cap*100. *(1-hc_decision_pos[t]))
+                @constraint(model, [t in 1:number_of_hours-1], hc_pos[t] >= heat_sto_soc[t+1]/COP - debug_cap*100. * hc_decision_pos[t])
                 # for the negative, we define utility variables to linearize max(flow_energy2heat[t]-u_heatpump, (heat_sto_soc[t+1]-u_heat_storage)/COP)
                 @decision(model, -debug_cap*100. <= hc[t in 1:number_of_hours-1] <= 0.) # this variable will be the minimum
                 @constraint(model, [t in 1:number_of_hours-1], hc[t] >= flow_energy2heat[t]-u_heatpump)
                 @constraint(model, [t in 1:number_of_hours-1], hc[t] >= (heat_sto_soc[t+1]-u_heat_storage)/COP)
                 @decision(model, hc_decision[t in 1:number_of_hours-1], binary = true)
-                #set_binary(hc_decision)
                 @constraint(model, [t in 1:number_of_hours-1], flow_energy2heat[t]-u_heatpump-(heat_sto_soc[t+1]-u_heat_storage)/COP<=debug_cap*100*hc_decision[t])
                 @constraint(model, [t in 1:number_of_hours-1], -flow_energy2heat[t]+u_heatpump+(heat_sto_soc[t+1]-u_heat_storage)/COP<=debug_cap*100*(1-hc_decision[t]))
                 @constraint(model, [t in 1:number_of_hours-1], hc[t] <= flow_energy2heat[t]-u_heatpump + debug_cap*100. *(1-hc_decision[t]))
@@ -684,27 +691,18 @@ function get_penalized_scenarios(sp; scens = nothing)
     return penalized
 end
 
-function get_total_investment(sp; number_of_hours = 24*365)    
+function get_total_investment(sp)    
     total_inv = sp.stages[1].parameters[:c_pv]*value.(sp[1, :u_pv]) + 
                 sp.stages[1].parameters[:c_wind]*value.(sp[1, :u_wind]) +
                 sp.stages[1].parameters[:c_storage]*value.(sp[1, :u_storage]) +
                 sp.stages[1].parameters[:c_heat_storage]*value.(sp[1, :u_heat_storage]) +
                 sp.stages[1].parameters[:c_heatpump]*value.(sp[1, :u_heatpump])
-    #lifetime_factor = sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours
     return total_inv
 end
 
-function get_total_investment(data_dict::Dict{String, Any}; number_of_hours = 24*365)    
-    total_inv = sum([data_dict["params"]["c_"*var]]*data_dict["inv"]["u_"*var] 
-        for var in ["pv","wind","storage","heat_storage","heatpump"])
-    lifetime_factor = data_dict["params"]["asset_lifetime"] * 365 * 24 / number_of_hours
-    return total_inv[1]
-end
-
-function get_total_investment(data_dict::Dict{Symbol, Any}; number_of_hours = 24*365)    
+function get_total_investment(data_dict::Dict{Symbol, Any})    
     total_inv = sum([data_dict[:params][Symbol("c_"*var)]]*data_dict[:inv][Symbol("u_"*var)] 
         for var in ["pv","wind","storage","heat_storage","heatpump"])
-    lifetime_factor = data_dict[:params][:asset_lifetime]* 365 * 24 / number_of_hours
     return total_inv[1]
 end
 function get_operation_cost(sp)
@@ -713,12 +711,7 @@ function get_operation_cost(sp)
         sum(value.(sp[1, :sto_from_bus])) + sum(value.(sp[1, :sto_to_bus])))
     return op_cost
 end
-function get_operation_cost(data_dict::Dict{String, Any})
-    op_cost = data_dict["params"]["c_i"]sum(data_dict["op"]["gci"]) - data_dict["params"]["c_o"]sum(data_dict["op"]["gco"]) +
-        data_dict["params"]["regularize_lossy_flows"]*(sum(data_dict["op"]["heat_sto_from_bus"])+sum(data_dict["op"]["heat_sto_to_bus"])+
-        sum(data_dict["op"]["sto_from_bus"]) + sum(data_dict["op"]["sto_to_bus"]))
-    return op_cost
-end
+
 function get_operation_cost(data_dict::Dict{Symbol, Any})
     op_cost = data_dict[:params][:c_i]sum(data_dict[:op][:gci]) - data_dict[:params][:c_o]sum(data_dict[:op][:gco]) +
         data_dict[:params][:regularize_lossy_flows]*(sum(data_dict[:op][:heat_sto_from_bus])+sum(data_dict[:op][:heat_sto_to_bus])+
@@ -726,14 +719,14 @@ function get_operation_cost(data_dict::Dict{Symbol, Any})
     return op_cost
 end
 function get_servicing_cost(data_dict::Dict{Symbol, Any}; number_of_hours = 24*365)
-    total_inv = get_total_investment(data_dict, number_of_hours=number_of_hours)
+    total_inv = get_total_investment(data_dict)
     op_cost = get_operation_cost(data_dict)
     lifetime_factor = data_dict[:params][:asset_lifetime]* 365 * 24 / number_of_hours
     return data_dict[:cost]-total_inv/lifetime_factor-op_cost
 end
 
 function get_servicing_cost(sp; number_of_hours = 24*365)
-    total_inv = get_total_investment(sp, number_of_hours = number_of_hours)
+    total_inv = get_total_investment(sp)
     op_cost = get_operation_cost(sp)
     lifetime_factor = sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours
     return objective_value(sp)-total_inv/lifetime_factor-op_cost
