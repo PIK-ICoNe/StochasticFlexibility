@@ -17,8 +17,9 @@ F_range = 0.:2500.:25000.
 costs = zeros(length(F_range))
 inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
 invs = Dict(([var => zeros(length(F_range)) for var in inv_vars]))
+run_id = "legacy"
 for i in eachindex(F_range)
-    opt_data =  JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_$(F_range[i]).json"))
+    opt_data =  JSON.parsefile(joinpath(basepath, "results", run_id, "baseline/baseline_$(F_range[i]).json"))
     costs[i] = opt_data["cost"]
     for var in inv_vars
         invs[var][i] = opt_data["inv"][string(var)]

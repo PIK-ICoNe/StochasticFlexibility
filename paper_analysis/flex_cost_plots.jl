@@ -18,13 +18,12 @@ using BSON
 include(joinpath(basepath, "src", "sp_model.jl"))
 include(joinpath(basepath, "src", "data_load.jl"));
 #-
-opt_params = [(5000., 48, 25), (25000., 48, 25), (25000., 240, 120)]
-case_names = ["small", "base", "rare"]
+opt_params = [(500., 96, 20)]
+case_names = ["base"]
 plain_labels = ["OFR", "OFOR", "OFIOR"]
 timesteps = 1:24*365
-pv, wind, demand, heatdemand, pars = load_max_boegl(timesteps, heat = true);
-pars[:inv_budget] = 10^10;
-run_id = "old_constraint_old_heat2"#"flex_cost_07_28"#"flex_cost_05_12"
+pv, wind, demand, heatdemand, pars = load_max_boegl(heat = "when2heat");
+run_id = "legacy"
 savepath = joinpath(basepath, "results", run_id)
 #-
 cost_csv = joinpath(savepath, "mean_costs.csv")
@@ -72,9 +71,12 @@ for c_var in ["CR", "CF"]
     p["norm"*c_var]=PlotlyJS.Plot(traces_norm, norm_fig_layout)
     #relayout!(p["norm"*c_var],yaxis = attr(title_text = c_var*"/Fₛ, Euro"))
 end
-
+savepath = joinpath(basepath, "paper_plots", run_id)
+if !isdir(savepath)
+    mkdir(savepath)
+end
 #Plot normalized costs:
 for k in keys(p)
-    PlotlyJS.savefig(p[k], joinpath(basepath, "paper_plots", "flex_cost", k*"$run_id.png"))
+    PlotlyJS.savefig(p[k], joinpath(savepath, "flex_cost_$k.png"))
 end
 #-

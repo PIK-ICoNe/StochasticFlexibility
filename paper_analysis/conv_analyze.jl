@@ -20,19 +20,18 @@ using JSON
 include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"));
 
 #-
-base_model = JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_0.0.json"))
-CB = base_model["cost"]
+run_id = "legacy"
+base_model = BSON.load(joinpath(basepath, "results", run_id, "baseline/baseline_0.0.bson"))
+CB = base_model[:cost]
 CIB = get_total_investment(base_model)
 COB = get_operation_cost(base_model)
-inv_base = base_model["inv"]
-P = base_model["params"]
+inv_base = base_model[:inv]
+P = base_model[:params]
 base_model = nothing;
 #-
 scen_freq = 96
-run_id = "industry_district_heating"#"no_renewables"#"run_07_28"#"run_05_12"
-n_samples = [collect(15:5:35); collect(40:10:60); collect(100:25:120)]
-F_range = 5000.:5000.:25000.
-
+n_samples = [collect(20:10:70); collect(80:20:120)]
+F_range = [500.]
 data_matrix = Dict((:total_cost=>zeros(length(n_samples), length(F_range)), 
 :CF => zeros(length(n_samples), length(F_range)), 
 :CO => zeros(length(n_samples), length(F_range)),
@@ -67,18 +66,17 @@ hm_labels = ["CF" "CI"; "Cost of electricity storage" "Cost of heat storage"]
 fig = Figure(resolution = (2400, 1800))
 for i in 1:2
     for j in 1:2
-        j_m = j
-        (j == 2) && (j_m+=1) # this is done to place colorbars correctly
-        # having one colorbar for all plots does not work as the values are too different
-        ax = Axis(fig[i,j_m], xticklabelsvisible = (i==2),
-        yticklabelsvisible = (j==1), xtickformat = "{:0d}",
-        xlabel = L"F_G,\, MW", ylabel = L"n_m",
+        ax = Axis(fig[i,j], xticklabelsvisible = (i==2),
+        yticklabelsvisible = true, xtickformat = "{:0d}",
+        xlabel = L"F_G,\, kW", ylabel = L"n_m",
         xlabelvisible = (i==2), ylabelvisible = (j==1),
         title = hm_labels[i,j])
-        hm = heatmap!(ax, F_range./1000, n_samples, data_matrix[hm_vars[i,j]]', 
-        colormap=:blues)
-        Colorbar(fig[i,j_m+1], hm)
+        lines!(n_samples, vec(data_matrix[hm_vars[i,j]]))
     end
 end
 display(fig)
-save(joinpath(basepath,"paper_plots", "convergence", "conv_full_$(run_id).png"), fig)
+savepath = joinpath(basepath, "paper_plots", run_id)
+if !isdir(savepath)
+    mkdir(savepath)
+end
+save(joinpath(savepath, "conv_full.png"), fig)

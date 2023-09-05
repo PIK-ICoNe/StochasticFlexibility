@@ -23,17 +23,17 @@ include(joinpath(basepath, "src", "data_load.jl"));
 
 #-
 # Fist we get C^B
-base_model = JSON.parsefile(joinpath(basepath, "results/baseline", "baseline_0.0.json"))
-CB = base_model["cost"]
+run_id = "legacy"
+base_model = BSON.load(joinpath(basepath, "results", run_id, "baseline/baseline_0.0.bson"))
+CB = base_model[:cost]
 CIB = get_total_investment(base_model)
 COB = get_operation_cost(base_model)
-inv_base = base_model["inv"]
-P = base_model["params"]
+inv_base = base_model[:inv]
+P = base_model[:params]
 base_model = nothing;
 #-
-opt_params = [(5000., 48, 25), (25000., 48, 25), (25000., 240, 120)]
+opt_params = [(500., 96, 20)]
 timesteps = 1:24*365
-run_id = "old_constraint_old_heat2"#"flex_cost_07_28"#"flex_cost_06_30"
 savepath = joinpath(basepath, "results", run_id)
 #-
 df_costs = DataFrame(CSV.File(joinpath(savepath, "val_costs.csv")))
@@ -49,7 +49,7 @@ if !isfile(cost_csv) || !isfile(invs_csv)
     cost_vars = [:CF, :CR]
     for p in eachindex(opt_params)
         for m in 1:3
-            sel = subset(df_costs, :p => a -> a .== p, :m => n-> n.==m)
+            sel = subset(df_costs, :m => n-> n.==m)
             mean_CF = mean(sel[!,:cost])-CB
             mean_CR = mean(sel[!,:CR])
             err_CF = std(sel[!,:cost].-CB)
@@ -61,16 +61,16 @@ if !isfile(cost_csv) || !isfile(invs_csv)
             norm_err_CF = std(norm_costs)
             norm_mean_CR = mean_CR/total_flex
             norm_err_CR = std(sel[!, :CR])/total_flex
-            append!(df_cost_err, DataFrame(p=p, mode = m, 
+            append!(df_cost_err, DataFrame(mode = m, 
                 mean_CF = mean_CF, mean_CR = mean_CR,
                 err_CF = err_CF, err_CR = err_CR,
                 norm_mean_CF = norm_mean_CF, norm_mean_CR = norm_mean_CR,
                 norm_err_CF = norm_err_CF, norm_err_CR = norm_err_CR,))
 
             for (var_index, inv_var) in enumerate(inv_vars)
-                append!(df_inv_mean, DataFrame(p = p, mode = m, var = var_index,
-                    mean_value = mean(subset(df_inv, :p => a -> a .== p, 
-                    :m => mode -> mode .== m)[!,inv_vars[var_index]])*P[replace(string(inv_var), "u_" => "c_")]))
+                append!(df_inv_mean, DataFrame(mode = m, var = var_index,
+                    mean_value = mean(subset(df_inv, 
+                    :m => mode -> mode .== m)[!,inv_vars[var_index]])*P[Symbol(replace(string(inv_var), "u_" => "c_"))]))
             end
         end
     end
