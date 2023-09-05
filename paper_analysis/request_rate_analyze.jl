@@ -17,27 +17,21 @@ using JSON
 #= Include the file containing all the dependecies and optimization functions.
 =#
 #-
-include(joinpath(basepath, "experiments", "stochastic_optimization_setup.jl"));
+include(joinpath(basepath, "paper_experiments", "stochastic_optimization_setup.jl"));
 
 #-
-#=bkg_cost = []
-F = 5000.:5000.:25000.
-append!(bkg_cost, CSV.read(joinpath(basepath, "results/naive_flex/bkg", "cost_bkg.csv"), DataFrame)[!,1][1])
-for f in F
-    append!(bkg_cost, CSV.read(joinpath(basepath, "results/naive_flex/bkg", "cost_bkg_$f.csv"), DataFrame)[!,1][1])
-end
-=#
-base_model = JSON.parsefile(joinpath(basepath, "results", "baseline", "baseline_0.0.json"))
-CB = base_model["cost"]
+run_id = "new_parameters"
+base_model = BSON.load(joinpath(basepath, "results", run_id, "baseline/baseline_0.0.bson"))
+CB = base_model[:cost]
 CIB = get_total_investment(base_model)
 COB = get_operation_cost(base_model)
-inv_base = base_model["inv"]
-P = base_model["params"]
+inv_base = base_model[:inv]
+P = base_model[:params]
 base_model = nothing;
 #-
-scen_freq = 48:48:144#240
-F_range = 5000.:5000.:25000.
-run_id = "run_07_28"#"run_05_12"
+scen_freq = 48:48:144
+F_range = [250., 500., 1000., 2500., 5000.]
+run_id = "new_parameters"
 n_samples = 20
 
 data_matrix = Dict((:total_cost=>zeros(length(scen_freq), length(F_range)), 
@@ -73,7 +67,7 @@ set_theme!(Theme(fontsize=45))
 hm_vars = [:CF :CI; :u_storage :u_heat_storage; :u_heatpump :u_heatpump]
 hm_labels = ["CF" "CI"; "Cost of electricity storage" "Cost of heat storage"; "Cost of heat pump" "Cost of heat pump"]
 
-add_case_studies = true
+add_case_studies = false
 fig = Figure(resolution = (2400, 1800))
 for i in 1:2
     for j in 1:2
@@ -82,10 +76,10 @@ for i in 1:2
         # having one colorbar for all plots does not work as the values are too different
         ax = Axis(fig[i,j_m], xticklabelsvisible = (i==2),
         yticklabelsvisible = (j==1), xtickformat = "{:0d}",
-        xlabel = L"F_G,\, MW", ylabel = L"\Delta_t",
+        xlabel = L"F_G,\, kW", ylabel = L"\Delta_t",
         xlabelvisible = (i==2), ylabelvisible = (j==1),
         title = hm_labels[i,j])
-        hm = heatmap!(ax, F_range./1000, scen_freq, data_matrix[hm_vars[i,j]]', 
+        hm = heatmap!(ax, F_range./100, scen_freq, data_matrix[hm_vars[i,j]]', 
         colormap=:blues)
         Colorbar(fig[i,j_m+1], hm)
         if add_case_studies
@@ -97,4 +91,8 @@ end
 display(fig)
 case_studies = ""
 (add_case_studies)&&(case_studies="with_markers")
-save(joinpath(basepath,"paper_plots", "request_rate", "request_rate_full_$(run_id)_$(case_studies).png"), fig)
+savepath = joinpath(basepath, "paper_plots", run_id)
+if !isdir(savepath)
+    mkdir(savepath)
+end
+save(joinpath(savepath, "request_rate_full$(case_studies).png"), fig)
