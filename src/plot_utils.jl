@@ -295,27 +295,6 @@ function plot_scenario_distribution(scenarios; by_sign = false)
     end 
 end
 
-using VegaLite
-function plot_flex_sources(sp_data, pv, wind; timesteps = 1:24*365)
-    pos_cur = sp_data["op"]["pv_cur"][timesteps[begin:end-1]] .+ sp_data["op"]["wind_cur"][timesteps[begin:end-1]]
-    neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data["inv"]["u_pv"] .- wind[timesteps[begin:end-1]].*sp_data["inv"]["u_wind"]
-    pos_sto = sp_data["op"]["sto_soc"][timesteps[begin+1:end]]
-    neg_sto = pos_sto .- sp_data["inv"]["u_storage"]
-    COP = COP = sp_data["params"]["COP"]
-    pos_heat_sto = sp_data["op"]["heat_sto_soc"][timesteps[begin+1:end]]/COP
-    neg_heat_sto = pos_heat_sto .- sp_data["inv"]["u_heat_storage"]/COP
-    #=plt = plot(layout = (1,2))
-    plot!(plt[1], pos_cur, fill = (0, 0.5))
-    plot!(plt[1], pos_sto, fill = (0, 0.5))
-    plot!(plt[1], pos_heat_sto, fill = (0, 0.5))
-    plot!(plt[2], neg_cur, fill = (0, 0.5))
-    plot!(plt[2], neg_sto, fill = (0, 0.5))
-    plot!(plt[2], neg_heat_sto, fill = (0, 0.5))=#
-    p1 = areaplot(timesteps[begin:end-1], [pos_cur, pos_sto, pos_heat_sto], fillalpha = [0.5 0.5 0.5])
-    p2 = areaplot(timesteps[begin:end-1], [-neg_cur, -neg_sto, -neg_heat_sto], fillalpha = [0.5 0.5 0.5])
-    plot(p1, p2, layout = (1,2))
-end
-
 function plot_flex(sp_data, pv, wind; timesteps = 1:24*365)
     pos_cur = sp_data["op"]["pv_cur"][timesteps[begin:end-1]] .+ sp_data["op"]["wind_cur"][timesteps[begin:end-1]]
     neg_cur = pos_cur .- pv[timesteps[begin:end-1]].*sp_data["inv"]["u_pv"] .- wind[timesteps[begin:end-1]].*sp_data["inv"]["u_wind"]
