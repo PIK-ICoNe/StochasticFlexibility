@@ -34,7 +34,7 @@ else
     end
 end
 
-F_range = [0., 500.]
+F_range = [0, 250., 500., 1000., 2500., 5000.]
 i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
 F = F_range[i]
 println("Optimizing for GF $F")
