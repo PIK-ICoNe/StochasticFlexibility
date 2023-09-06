@@ -436,7 +436,7 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
                 # these represent constraints by heat pump transport and heat storage capacity
                 # we need two new dummy variables to linearize the minimum of the two
                 if guaranteed_flex
-                    @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + flow_energy2heat[t] >= F_pos)
+                    @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] + sto_soc[t+1] + hc_pos[t] >= F_pos) # flow_energy2heat[t] for a simplified version
                     @constraint(model, [t in 1:number_of_hours-1], pv_cur[t] + wind_cur[t] - pv[t]*u_pv - wind[t]*u_wind + sto_soc[t+1] - u_storage + hc[t] <= F_neg)
                     # should include heatpump constraint, but we do not consider it here
                 end
