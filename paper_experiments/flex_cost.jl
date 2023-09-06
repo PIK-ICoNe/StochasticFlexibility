@@ -56,7 +56,7 @@ csv_path = joinpath(savepath, "val_costs.csv")
 if !isfile(csv_path)
 #m - opt_mode = ["fixed_fg","fixed_fg_inv","OF"]
     open(csv_path, "w") do f
-        CSV.write(f,[], writeheader = true, header = ["s_or", "s_val", "m", "cost", "CR"])
+        CSV.write(f,[], writeheader = true, header = ["p", "s_or", "s_val", "m", "cost", "CR"])
     end
 end
 
@@ -65,7 +65,7 @@ if !isfile(inv_csv)
     #m - opt_mode = ["fixed_fg","fixed_fg_inv","OF"]
     open(inv_csv, "w") do f
         CSV.write(f,[], writeheader = true, 
-        header = ["s_or", "m", "u_pv", "u_wind", "u_storage", "u_heat_storage", "u_heatpump"])
+        header = ["p", "s_or", "m", "u_pv", "u_wind", "u_storage", "u_heat_storage", "u_heatpump"])
     end
 end
 #-
@@ -79,19 +79,21 @@ if debug
     scen_freq, F = 3+pars[:recovery_time], 500.
 	n_samples = 5
 else
-    opt_params = (500., 96, 40)
+    opt_params = [(500., 96, 60), (5000., 96, 60), (5000., 48, 30)]
     opt_mode = ["OFR","OFOR","OFIOR"]
     run_params = []
-    for m_index in 1:3
-        for s_or in 1:n_runs
-            for s_val in [collect(1:s_or-1);collect(s_or+1:n_val)]
-                push!(run_params, (m_index, s_or, s_val))
+    for p in eachindex(opt_params)
+        for m_index in 1:3
+            for s_or in 1:n_runs
+                for s_val in [collect(1:s_or-1);collect(s_or+1:n_val)]
+                    push!(run_params, (p, m_index, s_or, s_val))
+                end
             end
         end
     end
     i = Base.parse(Int,(ENV["SLURM_ARRAY_TASK_ID"]))
-    m_index, s_or, s_val = run_params[i]
-    F, scen_freq, n_samples = opt_params
+    p, m_index, s_or, s_val = run_params[i]
+    F, scen_freq, n_samples = opt_params[p]
 	println("F = $F")
 	println("scen_freq = $(scen_freq)")
     println("Sample #$(s_or)")
@@ -129,12 +131,12 @@ println("Evaluating the decision on sample $s_val")
 
 lock(savefile_lock)
 if size(val_costs)[1] != 0
-    sel = subset(val_costs, :s_or => c -> c .== (s_or), :s_val => s -> s .== s_val, :m => n-> n.==m_index)
+    sel = subset(val_costs, :p => a -> a .== p, :s_or => c -> c .== (s_or), :s_val => s -> s .== s_val, :m => n-> n.==m_index)
 else
     sel = []
 end
 if size(invests)[1] != 0
-    sel_inv = subset(val_costs, :s_or => c -> c .== (s_or), :m => n-> n.==m_index)
+    sel_inv = subset(val_costs, :p => a -> a .== p, :s_or => c -> c .== (s_or), :m => n-> n.==m_index)
 else
     sel_inv = []
 end
@@ -149,30 +151,28 @@ if size(sel)[1] == 0
         savefiles = false
     end
     stime = time()
+    fixed_invs = nothing
+    fixed_ops = nothing
     if m_index == 1 # fixed FG
-        sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
-        savefiles = savefiles, savepath = savepath, filename = filename, 
-        F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true,
-        fixed_invs = inv_fg, fixed_ops = op_fg, scens = scens, resample_scens = scens_val)
+        fixed_invs = inv_fg
+        fixed_ops = op_fg
     elseif m_index == 2
-        sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
+        fixed_invs = inv_fg
+    elseif m_index == 3
+        # no need to fix anything
+    end
+    sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
         savefiles = savefiles, savepath = savepath, filename = filename, 
         F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true,
-        fixed_invs = inv_fg, scens = scens, resample_scens = scens_val)
-    elseif m_index == 3
-        sp, rt = optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq, 
-        savefiles = savefiles, savepath = savepath, filename = filename, 
-        F_pos = F, F_neg = -F, F_max = F, F_min = F*0.6, resample = true, 
-        scens = scens, resample_scens = scens_val)
-    end
+        fixed_invs = fixed_invs, fixed_ops = fixed_ops, scens = scens, resample_scens = scens_val)
     println("Runtime in seconds: $(time()-stime)")
 	if size(sel_inv)[1] == 0
         invs = get_investments(sp)
-        CSV.write(inv_csv, DataFrame(s_or = s_or, m = m_index, 
+        CSV.write(inv_csv, DataFrame(p=p, s_or = s_or, m = m_index, 
         u_pv = invs[:u_pv], u_wind = invs[:u_wind], u_storage = invs[:u_storage], 
         u_heat_storage = invs[:u_heat_storage], u_heatpump = invs[:u_heatpump]), append = true)
     end
-    CSV.write(csv_path, DataFrame(s_or = s_or, s_val = s_val, m = m_index, cost = objective_value(sp), CR = get_servicing_cost(sp)), append = true)
+    CSV.write(csv_path, DataFrame(p=p, s_or = s_or, s_val = s_val, m = m_index, cost = objective_value(sp), CR = get_servicing_cost(sp)), append = true)
 else
     println("$(opt_mode[m_index]) optimization for F = $F, scen_freq = $scen_freq and sample $(s_or) skipped.")
 end

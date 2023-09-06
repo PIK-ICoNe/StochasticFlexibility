@@ -45,7 +45,7 @@ savepath = joinpath(basepath, "results", run_id)
 if !isdir(savepath)
     mkdir(savepath)
 end
-n_samples = 20 # base n_samples for scen_freq = 48
+n_samples = 30 # base n_samples for scen_freq = 48
 debug && (scen_freq = 3+pars[:recovery_time])
 if debug
     F = 500.

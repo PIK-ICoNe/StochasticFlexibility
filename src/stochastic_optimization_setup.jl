@@ -90,9 +90,8 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
     gci, gco = get_penalty_array(sp)
     println("$(length(gci[gci.>0.])) scenarios used gci to balance the request")
     println("$(length(gco[gco.>0.])) scenarios used gco to balance the request")
-    penalty_DF = DataFrame(gci = gci, gco = gco)
-    CSV.write(joinpath(savepath, "penalty_info.csv"), penalty_DF)
-    # TODO save penalty array data
+    #penalty_DF = DataFrame(gci = gci, gco = gco)
+    #CSV.write(joinpath(savepath, "penalty_info.csv"), penalty_DF)
     println("Model optimized in $runtime seconds")
     @assert objective_value(sp) != Inf
     first_stage_cost = get_total_investment(sp)/sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours + get_operation_cost(sp)
@@ -102,7 +101,8 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
             opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
                 :F_guar_pos => F_pos, :F_guar_neg => F_neg))
             all_data = get_all_data(sp, rec=false, scen=false)
-            all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+            all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp),
+                                                        :gci_penalty => gci, :gco_penalty => gco)))
             bson(joinpath(savepath, filename*"before_resampling.bson"), all_data)
         end
         stime = time()
@@ -126,12 +126,16 @@ function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
         @assert objective_value(sp) != Inf
         first_stage_cost = get_total_investment(sp)/sp.stages[1].parameters[:asset_lifetime] * 365 * 24 / number_of_hours + get_operation_cost(sp)
         println("After resampling Cost/kWh = $(first_stage_cost/(sum(demand)+sum(heatdemand)))")
+        gci, gco = get_penalty_array(sp)
+        println("$(length(gci[gci.>0.])) scenarios used gci to balance the request")
+        println("$(length(gco[gco.>0.])) scenarios used gco to balance the request")
     end
     if savefiles
         opt_params = Dict((:F_min => F_min, :F_max => F_max, :t_max_offset => t_max_offset, :n_samples => n_samples, :scen_freq => scen_freq, 
             :F_guar_pos => F_pos, :F_guar_neg => F_neg))
         all_data = get_all_data(sp, rec=false, scen=false)
-        all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp))))
+        all_data = merge(all_data, opt_params, Dict((:runtime => runtime, :cost => objective_value(sp),
+                                                    :gci_penalty => gci, :gco_penalty => gco)))
         bson(joinpath(savepath, filename*".bson"), all_data)
     end
     return sp, runtime

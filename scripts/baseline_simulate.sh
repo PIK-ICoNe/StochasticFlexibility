@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
 #SBATCH --array=1-2%2
-#SBATCH --output=output/jobarray-%A_%a.out
+#SBATCH --output=output/baseline-%A_%a.out
 
 
 # 1. make sure all cores we get are on one node
@@ -21,4 +21,4 @@
 
 module load julia
 
-julia ./code/StochasticFlexibility/paper_experiments/baseline_simulate.jl new_constraint
+julia ./code/StochasticFlexibility/paper_experiments/baseline_simulate.jl improved_constraint
