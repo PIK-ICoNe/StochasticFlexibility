@@ -4,7 +4,7 @@
 #SBATCH --qos=priority
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
-#SBATCH --array=1-2%2
+#SBATCH --array=1-6%6
 #SBATCH --output=output/baseline-%A_%a.out
 
 
