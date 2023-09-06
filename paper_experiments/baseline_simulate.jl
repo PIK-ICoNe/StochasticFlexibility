@@ -24,9 +24,14 @@ pv, wind, demand, heatdemand, pars = load_max_boegl(heat = "when2heat");
 run_id  = ARGS[1]
 stime = time()
 
-savepath = joinpath(basepath,"results", run_id, "baseline")
-if !isdir(savepath)
-    mkdir(savepath)
+respath = joinpath(basepath,"results", run_id)
+savepath = joinpath(respath, "baseline")
+if !isdir(respath)
+    mkpath(savepath)
+else
+    if !isdir(savepath)
+        mkdir(savepath)
+    end
 end
 
 F_range = [0., 500.]
