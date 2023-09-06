@@ -14,4 +14,5 @@ echo "SLURM TASK ID: $SLURM_ARRAY_TASK_ID"
 
 module load julia
 
+srun julia ./code/StochasticFlexibility/paper_experiments/create_samples.jl
 srun julia ./code/StochasticFlexibility/paper_experiments/flex_cost.jl improved_constraint 3 3
