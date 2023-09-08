@@ -10,8 +10,8 @@ using StochasticPrograms
 using Random
 using CSV
 
-include(joinpath(basepath, "src", "sp_model.jl"))
-include(joinpath(basepath, "src", "data_load.jl"));
+include(joinpath(@__DIR__, "sp_model.jl"))
+include(joinpath(@__DIR__, "data_load.jl"));
 
 function optimize_sp(pv, wind, demand, heatdemand, pars, n_samples, scen_freq;
     F_min=300.0,

@@ -1,6 +1,8 @@
 using DataFrames
 using CSV
 
+## TODO make sure somehow that default_es_pars is known
+
 # pass heat = "district" for district heating, heat = "when2heat" for germany
 # "district" is default
 function load_max_boegl(;
