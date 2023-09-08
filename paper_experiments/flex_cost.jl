@@ -31,11 +31,10 @@ debug = false
 n_runs = 20 # number of repeats with the same parameters
 n_val = 3 # number of validation repeats, reevaluating for n_val new samples
 if length(ARGS) > 1
-    n_runs = Base.parse(Int,ARGS[2])
-    println(n_runs)
-    if length(ARGS) > 2
-        n_val = Base.parse(Int,ARGS[2])
-    end
+    @assert length(ARGS) == 3 "Wrong number of arguments"
+    n_runs = Base.parse(Int, ARGS[2])
+    n_val = Base.parse(Int, ARGS[3])
+    println("Number of runs: $(n_runs)", "Number of validations: $(n_val)")
 end
 
 if occursin("debug", ARGS[1])
