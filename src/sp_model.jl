@@ -18,7 +18,7 @@ Default values of system parameters.
 - heat_losses - losses in the heat storage
 - penalty - price of non-delivery of flexibility, Euro
 """
-default_es_pars = Dict((
+const default_es_pars = Dict((
     :c_i => .3,
     :c_o => .05,
     :asset_lifetime => 10.,
