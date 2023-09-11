@@ -578,16 +578,15 @@ function define_energy_system(pv, wind, demand, heatdemand; p = default_es_pars,
     energy_system
 end
 
-inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
-op_vars = [:gci, :gco, :sto_soc, :sto_to_bus, :sto_from_bus,
-            :heat_sto_soc, :heat_sto_to_bus, :heat_sto_from_bus,
-            :flow_energy2heat, :pv_cur, :wind_cur]
+
+
 """
 Get decision variables associated with investment rather than system operation.
 """
-get_investments(sp) = Dict((
-    [var => value.(sp[1, var]) for var in inv_vars]
-))
+function get_investments(sp)
+    inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage,:u_heatpump] 
+    return Dict(([var => value.(sp[1, var]) for var in inv_vars]))
+end
 
 """
 Fix the investment variables.
@@ -600,6 +599,7 @@ function fix_investment!(sp, investments)
 end
 
 function unfix_investment!(sp)
+    inv_vars = [:u_pv, :u_wind, :u_storage, :u_heat_storage, :u_heatpump]
     for var_sym in inv_vars
         unfix(decision_by_name(sp, 1, string(var_sym)))
     end
@@ -609,19 +609,21 @@ end
 """
 Get decision variables associated with 1st stage.
 """
-get_operation(sp) = Dict((
-    :pv_cur => value.(sp[1,:pv_cur]),
-    :wind_cur => value.(sp[1,:wind_cur]),
-    :gci => value.(sp[1,:gci]),
-    :gco => value.(sp[1,:gco]),
-    :sto_to_bus => value.(sp[1,:sto_to_bus]),
-    :sto_from_bus => value.(sp[1,:sto_from_bus]),
-    :sto_soc => value.(sp[1,:sto_soc]),
-    :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]),
-    :heat_sto_from_bus => value.(sp[1,:heat_sto_from_bus]),
-    :heat_sto_soc => value.(sp[1,:heat_sto_soc]),
-    :flow_energy2heat => value.(sp[1,:flow_energy2heat])
-))
+function get_operation(sp) 
+    return Dict((
+        :pv_cur => value.(sp[1,:pv_cur]),
+        :wind_cur => value.(sp[1,:wind_cur]),
+        :gci => value.(sp[1,:gci]),
+        :gco => value.(sp[1,:gco]),
+        :sto_to_bus => value.(sp[1,:sto_to_bus]),
+        :sto_from_bus => value.(sp[1,:sto_from_bus]),
+        :sto_soc => value.(sp[1,:sto_soc]),
+        :heat_sto_to_bus => value.(sp[1,:heat_sto_to_bus]),
+        :heat_sto_from_bus => value.(sp[1,:heat_sto_from_bus]),
+        :heat_sto_soc => value.(sp[1,:heat_sto_soc]),
+        :flow_energy2heat => value.(sp[1,:flow_energy2heat])
+    ))
+end
 
 """
 Fix the investment variables.
@@ -636,6 +638,9 @@ function fix_operation!(sp, operation, number_of_hours)
 end
 
 function unfix_operation!(sp, number_of_hours)
+    op_vars = [:gci, :gco, :sto_soc, :sto_to_bus, :sto_from_bus,
+            :heat_sto_soc, :heat_sto_to_bus, :heat_sto_from_bus,
+            :flow_energy2heat, :pv_cur, :wind_cur]
     for var_sym in keys(op_vars)
         for i in 1:number_of_hours
             unfix(decision_by_name(sp, 1, string(var_sym)*"[$i]"))
@@ -644,19 +649,21 @@ function unfix_operation!(sp, number_of_hours)
     println("Operational schedule is released")
 end
 
-get_recovery(sp, n)= Dict((
-    :pv_cur2 => value.(sp[2,:pv_cur2], n),
-    :wind_cur2 => value.(sp[2,:wind_cur2], n),
-    :gci2 => value.(sp[2,:gci2], n),
-    :gco2 => value.(sp[2,:gco2], n),
-    :sto_to_bus2 => value.(sp[2,:sto_to_bus], n),
-    :sto_from_bus2 => value.(sp[2,:sto_from_bus2], n),
-    :sto_soc2 => value.(sp[2,:sto_soc2], n),
-    :heat_sto_to_bus2 => value.(sp[2,:heat_sto_to_bus2], n),
-    :heat_sto_from_bus2 => value.(sp[2,:heat_sto_from_bus2], n),
-    :heat_sto_soc2 => value.(sp[2,:heat_sto_soc2], n),
-    :flow_energy2heat2 => value.(sp[2,:flow_energy2heat2], n)
-))
+function get_recovery(sp, n)
+    return Dict((
+        :pv_cur2 => value.(sp[2,:pv_cur2], n),
+        :wind_cur2 => value.(sp[2,:wind_cur2], n),
+        :gci2 => value.(sp[2,:gci2], n),
+        :gco2 => value.(sp[2,:gco2], n),
+        :sto_to_bus2 => value.(sp[2,:sto_to_bus], n),
+        :sto_from_bus2 => value.(sp[2,:sto_from_bus2], n),
+        :sto_soc2 => value.(sp[2,:sto_soc2], n),
+        :heat_sto_to_bus2 => value.(sp[2,:heat_sto_to_bus2], n),
+        :heat_sto_from_bus2 => value.(sp[2,:heat_sto_from_bus2], n),
+        :heat_sto_soc2 => value.(sp[2,:heat_sto_soc2], n),
+        :flow_energy2heat2 => value.(sp[2,:flow_energy2heat2], n),
+    ))
+end
 
 """
 Get array of penalties taken in each scenario. 
